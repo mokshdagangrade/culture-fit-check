@@ -2,6 +2,7 @@
 .env
 .env.local
 *.env
+!.sample.env
 
 # macOS
 .DS_Store
