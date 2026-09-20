@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wavelength</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-country="US">
+  <div class="wrap">
+    <header>
+      <div class="wordmark">
+        <img src="assets/logo.png" alt="Wavelength"
+             onerror="this.outerHTML='&lt;span class=&quot;wordmark-text&quot;&gt;Wavelength&lt;/span&gt;'" />
+      </div>
+      <div class="country-toggle" role="group" aria-label="Country">
+        <button id="btn-us" aria-pressed="true" onclick="setCountry('US')">US</button>
+        <button id="btn-india" aria-pressed="false" onclick="setCountry('India')">India</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div>
+        <h2 class="section-title">Brand &amp; content</h2>
+        <form id="form">
+          <div class="field">
+            <label for="brand_name">Brand name</label>
+            <input id="brand_name" value="Sample Coffee Co" required />
+          </div>
+          <div class="field">
+            <label for="industry">Industry</label>
+            <input id="industry" value="coffee shop" required />
+          </div>
+          <div class="field">
+            <label for="tone">Tone</label>
+            <input id="tone" value="playful" required />
+          </div>
+          <div class="row-2">
+            <div class="field">
+              <label for="region">Region (state)</label>
+              <input id="region" value="Texas" required />
+            </div>
+            <div class="field">
+              <label for="city">City</label>
+              <input id="city" value="Austin" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="content_type">Content type</label>
+            <select id="content_type">
+              <option value="caption">Caption</option>
+              <option value="notification">Notification</option>
+              <option value="meme">Meme</option>
+            </select>
+          </div>
+          <button class="generate" id="generate-btn" type="submit">Generate</button>
+        </form>
+      </div>
+
+      <div>
+        <h2 class="section-title">Signal readout</h2>
+        <div class="readout" id="readout">
+          <div class="label" id="readout-label">Texas, US — not fetched yet</div>
+          <div class="empty">Fill in the form and generate to pull live context for this region.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="results" id="results" style="display:none;">
+      <h2 class="section-title">Results</h2>
+      <div id="candidates"></div>
+      <div class="note" id="pipeline-note"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
