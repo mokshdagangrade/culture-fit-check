@@ -26,7 +26,7 @@ cd src/backend
 python -m venv venv
 source venv/bin/activate      # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env          # fill in keys once an LLM provider is picked
+cp .sample.env .env          # fill in keys once an LLM provider is picked
 uvicorn main:app --reload
 ```
 
