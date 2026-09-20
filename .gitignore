@@ -1,0 +1,27 @@
+# Environment variables
+.env
+.env.local
+*.env
+
+# macOS
+.DS_Store
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Node (if you add tooling later)
+node_modules/
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
