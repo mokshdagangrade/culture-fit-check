@@ -1,7 +1,7 @@
 ---
 team: Wavelength
-session: 03
-date: 2026-09-15
+session: 04
+date: 2026-09-22
 members:
   - name: Stuti Patel
     github: stupatel
@@ -39,6 +39,7 @@ north_star:
 ## User evidence
 
 - Established initial baseline testing and pipeline scaffolding to prepare for live user task testing.
+- Discussed the project with friends, shared our vision, and gathered honest feedback to better understand our target audience, their needs, and the potential market reach of the project.
 
 ## Metrics snapshot
 
@@ -67,6 +68,7 @@ north_star:
 - Connect frontend UI directly to backend `/generate-caption` and `/evaluate-copy` endpoints for end-to-end user testing.
 - Upgrade trend retrieval from hardcoded mocks to dynamic geolocation and live weather/trend fetching.
 - Curate a benchmark dataset of 50+ localized marketing copy samples to begin measuring baseline accuracy and recall metrics.
+- Develop a database structure to efficiently handle and organize different types of data.
 
 ## Individual contributions
 
