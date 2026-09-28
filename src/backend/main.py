@@ -21,6 +21,8 @@ from models import (
 )
 from trend_retrieval import get_mock_context
 
+from evaluator import EvaluateRequest, EvaluateResponse, run_evaluation
+
 app = FastAPI(title="Wavelength API", version="0.2.0")
 
 app.add_middleware(
@@ -28,6 +30,12 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+SYSTEM_PROMPT = (
+    "You are a regional marketing copywriter. You write short-form copy that "
+    "sounds native to one specific market, not like US copy that was translated. "
+    "You never invent facts about the brand. You output nothing but the copy."
 )
 
 # states classified as India for the country tag used in generation/grounding
@@ -48,7 +56,11 @@ def user_to_profile(user: dict) -> ProfileResponse:
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "llm_configured": llm.is_configured(),
+        "model": llm.model_name() if llm.is_configured() else None,
+    }
 
 
 # ---------- Auth ----------
