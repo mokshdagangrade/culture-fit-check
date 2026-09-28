@@ -22,6 +22,8 @@ from dotenv import load_dotenv
 import llm
 from trend_retrieval import get_mock_context
 
+from evaluator import EvaluateRequest, EvaluateResponse, run_evaluation
+
 load_dotenv()
 
 app = FastAPI(title="Wavelength API", version="0.2.0")
@@ -147,3 +149,9 @@ def generate_caption(req: CaptionRequest):
             "Copy .env.example to .env and add a key to use the LLM path."
         ),
     )
+
+@app.post("/evaluate-copy", response_model=EvaluateResponse)
+def evaluate_copy(req: EvaluateRequest):
+    context = get_mock_context(req.country, req.region, req.city)
+    return run_evaluation(req, context)
+
