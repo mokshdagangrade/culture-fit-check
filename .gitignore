@@ -26,3 +26,6 @@ node_modules/
 
 # OS
 Thumbs.db
+
+data/pipeline/out/
+data/pipeline/.env.example
