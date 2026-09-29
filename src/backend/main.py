@@ -9,7 +9,7 @@ email draft/approval flow. See README for what's real vs. still stubbed.
 from datetime import datetime, timezone
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-
+import llm
 from db import users_collection, feedback_collection
 from auth import hash_password, verify_password, create_token, get_current_user
 from models import (
@@ -18,6 +18,7 @@ from models import (
     GenerateRequest, GenerateResponse, TaglineCandidate,
     FeedbackRequest,
     EmailDraftRequest, EmailDraftResponse, EmailSendRequest,
+    ChatRequest, ChatResponse,
 )
 from trend_retrieval import get_mock_context
 
@@ -196,3 +197,18 @@ def send_email(req: EmailSendRequest, user: dict = Depends(get_current_user)):
         "status": "stubbed",
         "note": "No real email was sent -- this endpoint is a placeholder for the send integration.",
     }
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(req: ChatRequest):
+    try:
+        response = llm.call_llm(
+            prompt=req.message,
+            system="You are a helpful assistant.",
+            temperature=0.7,
+            max_tokens=200,
+        )
+
+        return ChatResponse(response=response)
+
+    except llm.LLMError as e:
+        raise HTTPException(status_code=500, detail=str(e))
