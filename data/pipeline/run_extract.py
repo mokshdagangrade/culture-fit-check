@@ -4,10 +4,11 @@ Runs the full pipeline for one day, for all 50 US states
 
 import argparse
 import json
-from datetime import date, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
+from schemas import ErrorDoc
 
 load_dotenv()
 
@@ -19,6 +20,8 @@ from extractors.attention import fetch_top_attention
 from extractors.calendar import fetch_holidays, MissingAPIKey as CalendarKeyMissing
 from extractors.social import fetch_subreddit_posts
 from extractors.sports import fetch_scoreboard
+from extractors.events import fetch_events
+from extractors.youtube import fetch_trending
 from stitch import stitch_state
 from validate import check_reference_data, check_batch
 
@@ -26,13 +29,13 @@ OUT_DIR = Path(__file__).parent / "out"
 
 
 def try_fetch(label, fn, *args, **kwargs):
-    """Run one extractor call; on failure, print why and return None
-    rather than crashing the whole 50-state run over one bad source."""
+    """Run one extractor call; on failure, print why and return an
+    ErrorDoc rather than crashing the whole 50-state run."""
     try:
         return fn(*args, **kwargs)
     except Exception as e:
         print(f"  [skip] {label}: {e}")
-        return None
+        return ErrorDoc(source=label, error=str(e), fetched_at=datetime.now(timezone.utc))
 
 
 def main():
@@ -54,6 +57,7 @@ def main():
     print(f"Fetching national-level sources for {today}...")
     attention_doc = try_fetch("attention (Wikipedia)", fetch_top_attention)
     sports_doc = try_fetch("sports (ESPN)", fetch_scoreboard)
+    youtube_doc = try_fetch("youtube (trending)", fetch_trending)
 
     stitched_docs = []
     for i, state in enumerate(states):
@@ -64,12 +68,14 @@ def main():
         calendar_doc = try_fetch("calendar", fetch_holidays, state)
         social_doc = try_fetch("social", fetch_subreddit_posts, state)
         trends_doc = try_fetch("trends", fetch_trends, state)
+        events_doc = try_fetch("events", fetch_events, state)
 
         stitched = stitch_state(
             state_code=state["code"], the_date=today,
             weather=weather_doc, news=news_doc, trends=trends_doc,
             attention=attention_doc,
             calendar=calendar_doc, social=social_doc, sports=sports_doc,
+            events=events_doc, youtube=youtube_doc,
         )
         stitched_docs.append(stitched)
 

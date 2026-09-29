@@ -7,9 +7,23 @@ from schemas import AttentionDoc, SourceMeta
 BASE_URL = "https://wikimedia.org/api/rest_v1/metrics/pageviews/top-per-country"
 MAX_DAYS_BACK = 5
 
-# Pages that show up in every top-list and aren't "attention" signals.
-NOISE_TITLES = {"Main_Page", "Special:Search", "Special:CentralAutoLogin/checkForCookies"}
+NOISE_TITLES = {"Special:Search", "Special:CentralAutoLogin/checkForCookies"}
 
+# Any language's home page / portal, e.g. "Main_Page", "Wikipedia:Portada",
+# "メインページ", "Wikipédia:Accueil_principal" -- these show up regardless of
+# country because pageviews aren't filtered by article language, only by
+# who's viewing.
+NOISE_SUFFIXES = ("Main_Page", "メインページ", "首页", "Hauptseite")
+
+
+def _is_noise(title: str) -> bool:
+    if title in NOISE_TITLES:
+        return True
+    if ":" in title:  # catches "Wikipedia:", "Wikipédia:", "特別:" etc. -- namespace pages, not articles
+        return True
+    if title.endswith(NOISE_SUFFIXES):
+        return True
+    return False
 
 class NoDataAvailable(Exception):
     pass
@@ -37,7 +51,7 @@ def fetch_top_attention(country_code: str = "US", limit: int = 20, timeout: int 
         body = resp.json()
 
         articles = body.get("items", [{}])[0].get("articles", [])
-        top = [a["article"] for a in articles if a.get("article") not in NOISE_TITLES][:limit]
+        top = [a["article"] for a in articles if not _is_noise(a.get("article", ""))][:limit]
 
         return AttentionDoc(
             country_code=country_code,
