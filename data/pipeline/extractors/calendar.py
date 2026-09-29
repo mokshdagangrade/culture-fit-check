@@ -2,7 +2,7 @@ import os
 from datetime import date, datetime, timezone
 
 from http_client import polite_get
-from schemas import CalendarDoc, Holiday, SourceMeta
+from schemas import CalendarDoc, Holiday, SourceMeta, GeoTag
 
 BASE_URL = "https://calendarific.com/api/v2/holidays"
 
@@ -55,6 +55,7 @@ def fetch_holidays(state: dict, timeout: int = 10) -> CalendarDoc:
             fetched_at=datetime.now(timezone.utc),
             status="empty" if not all_holidays else "ok",
         ),
+        geo=GeoTag(scope="state", state_code=state["code"], confidence="exact"),
         holidays_today=today_holidays,
         holidays_this_month=all_holidays,
     )

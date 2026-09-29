@@ -1,7 +1,7 @@
 from collections import Counter
 from datetime import datetime, timezone
 
-from us_states import US_STATES, STATE_CODES
+from us_states import US_STATES, STATE_CODES, CENSUS_REGIONS, DIVISION_TO_REGION
 
 US_LAT_RANGE = (18.0, 72.0)     # covers Hawaii to northern Alaska
 US_LON_RANGE = (-180.0, -65.0)  # covers Alaska's westward extent to the East Coast
@@ -20,6 +20,17 @@ def check_reference_data() -> list[str]:
             errors.append(f"{s['code']}: latitude {s['lat']} outside expected US range")
         if not (US_LON_RANGE[0] <= s["lon"] <= US_LON_RANGE[1]):
             errors.append(f"{s['code']}: longitude {s['lon']} outside expected US range")
+
+        if s["census_region"] not in CENSUS_REGIONS:
+            errors.append(f"{s['code']}: unknown census_region '{s['census_region']}'")
+        expected_region = DIVISION_TO_REGION.get(s["census_division"])
+        if expected_region is None:
+            errors.append(f"{s['code']}: unknown census_division '{s['census_division']}'")
+        elif expected_region != s["census_region"]:
+            errors.append(
+                f"{s['code']}: census_division '{s['census_division']}' belongs to "
+                f"'{expected_region}', not '{s['census_region']}'"
+            )
 
     if seen_codes != STATE_CODES:
         errors.append("US_STATES and STATE_CODES are out of sync")
@@ -52,19 +63,26 @@ def check_batch(stitched_docs: list, expected_date) -> dict:
         report["errors"].append(f"document(s) not dated {expected_date}: {wrong_date}")
 
     source_missing_counts = Counter()
+    source_error_counts = Counter()
     for d in stitched_docs:
         for src in d.sources_missing:
             source_missing_counts[src] += 1
+        for src_name in d.sources_present:
+            src_doc = getattr(d.signals, src_name)
+            if src_doc is not None and src_doc.meta.status == "error":
+                source_error_counts[src_name] += 1
+
     report["coverage"] = {
         "states_processed": len(stitched_docs),
         "states_expected": len(STATE_CODES),
         "missing_by_source": dict(source_missing_counts),
+        "errored_by_source": dict(source_error_counts),
     }
 
     now = datetime.now(timezone.utc)
     stale = []
     for d in stitched_docs:
-        for src_name in ("weather", "news", "trends", "attention", "calendar", "social", "sports"):
+        for src_name in d.sources_present:
             src_doc = getattr(d.signals, src_name)
             if src_doc is not None and (now - src_doc.meta.fetched_at).total_seconds() > 3600:
                 stale.append((d.state_code, src_name))

@@ -3,7 +3,7 @@ from datetime import date, datetime, timezone
 from trendspyg import download_google_trends_rss
 
 from http_client import throttle_host
-from schemas import TrendsDoc, TrendItem, SourceMeta
+from schemas import TrendsDoc, TrendItem, SourceMeta, GeoTag
 
 RSS_HOST = "trends.google.com"
 
@@ -32,5 +32,6 @@ def fetch_trends(state: dict, limit: int = 10) -> TrendsDoc:
             fetched_at=datetime.now(timezone.utc),
             status="empty" if not trends else "ok",
         ),
+        geo=GeoTag(scope="state", state_code=state["code"], confidence="exact"),
         trends=trends,
     )

@@ -1,7 +1,7 @@
 from datetime import date, datetime, timezone
 
 from http_client import polite_get
-from schemas import SocialDoc, RedditPost, SourceMeta
+from schemas import SocialDoc, RedditPost, SourceMeta, GeoTag
 
 BASE_URL = "https://arctic-shift.photon-reddit.com/api/posts/search"
 
@@ -46,6 +46,7 @@ def fetch_subreddit_posts(state: dict, limit: int = 20, timeout: int = 15) -> So
             source="arctic-shift", url=resp.url, fetched_at=datetime.now(timezone.utc),
             status="empty" if not posts else "ok",
         ),
+        geo=GeoTag(scope="state", state_code=state["code"], confidence="guessed"), #guessed because we are getting geolocation based on subreddit
         subreddit=subreddit_guess,
         subreddit_confirmed=bool(posts),   #got real rows back, so the subreddit is at least active
         posts=posts,

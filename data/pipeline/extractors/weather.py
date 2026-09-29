@@ -1,7 +1,7 @@
 from datetime import date, datetime, timezone
 
 from http_client import polite_get
-from schemas import WeatherDoc, SourceMeta
+from schemas import WeatherDoc, SourceMeta, GeoTag
 
 BASE_URL = "https://api.open-meteo.com/v1/forecast"
 
@@ -37,11 +37,8 @@ def fetch_weather(state: dict, timeout: int = 10) -> WeatherDoc:
     return WeatherDoc(
         state_code=state["code"],
         date=date.today(),
-        meta=SourceMeta(
-            source="open-meteo",
-            url=resp.url,
-            fetched_at=datetime.now(timezone.utc),
-        ),
+        meta=SourceMeta(source="open-meteo", url=resp.url, fetched_at=datetime.now(timezone.utc)),
+        geo=GeoTag(scope="state", state_code=state["code"], confidence="exact"),
         temperature_c=current.get("temperature_2m"),
         temperature_max_c=(daily.get("temperature_2m_max") or [None])[0],
         temperature_min_c=(daily.get("temperature_2m_min") or [None])[0],

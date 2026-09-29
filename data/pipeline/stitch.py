@@ -16,31 +16,30 @@ from typing import Optional
 
 from schemas import (
     WeatherDoc, NewsDoc, TrendsDoc, AttentionDoc,
-    CalendarDoc, SocialDoc, SportsDoc, StitchedDoc, StitchedSignals,
+    CalendarDoc, SocialDoc, SportsDoc, EventsDoc, YoutubeDoc,
+    ErrorDoc, StitchedDoc, StitchedSignals,
 )
 from us_states import US_STATES
 
 _STATE_BY_CODE = {s["code"]: s for s in US_STATES}
 
-_SOURCE_NAMES = ("weather", "news", "trends", "attention", "calendar", "social", "sports")
+_SOURCE_NAMES = ("weather", "news", "trends", "attention", "calendar", "social", "sports", "events", "youtube")
 
 
 def stitch_state(
     state_code: str,
     the_date,
-    weather: Optional[WeatherDoc] = None,
-    news: Optional[NewsDoc] = None,
-    trends: Optional[TrendsDoc] = None,
-    attention: Optional[AttentionDoc] = None,
-    calendar: Optional[CalendarDoc] = None,
-    social: Optional[SocialDoc] = None,
-    sports: Optional[SportsDoc] = None,
+    weather=None, news=None, trends=None,
+    attention=None, calendar=None, social=None, sports=None,
+    events=None, youtube=None,
 ) -> StitchedDoc:
     state = _STATE_BY_CODE[state_code]
     docs = {
         "weather": weather, "news": news, "trends": trends,
         "attention": attention, "calendar": calendar, "social": social, "sports": sports,
+        "events": events, "youtube": youtube,
     }
+    docs = {name: (None if isinstance(doc, ErrorDoc) else doc) for name, doc in docs.items()}
 
     present = [name for name in _SOURCE_NAMES if docs[name] is not None]
     missing = [name for name in _SOURCE_NAMES if docs[name] is None]
@@ -48,7 +47,8 @@ def stitch_state(
     return StitchedDoc(
         state_code=state_code,
         state_name=state["name"],
-        region=state["region"],
+        census_region=state["census_region"],
+        census_division=state["census_division"],
         date=the_date,
         stitched_at=datetime.now(timezone.utc),
         sources_present=present,
