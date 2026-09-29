@@ -201,10 +201,20 @@ async function onSend(e) {
   try {
     if (files.length) await saveExamples(files);
     if (!text) {
-      addBot('<p>Got it. I\u2019ll use those as style examples. What should we post about?</p>');
+        addBot('<p>Got it. What should we post about?</p>');
     } else {
-      lastBrief = { prompt: text, contentType };
-      await runLoop();
+        const typing = addTyping();
+
+        const data = await authFetch('/chat', {
+            method: 'POST',
+            body: JSON.stringify({
+                message: text
+            }),
+        });
+
+        typing.remove();
+
+        addBot(`<p>${escapeHtml(data.response)}</p>`);
     }
   } catch (err) {
     addBot(`<p>That didn\u2019t work: ${escapeHtml(err.message)}</p>`);

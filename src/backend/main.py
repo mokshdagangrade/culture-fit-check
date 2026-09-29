@@ -32,7 +32,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+from services.company_service import get_company_details
+from services.location_service import get_location
+from services.weather_service import get_weather
+from services.trend_service import get_google_trends, select_trends
 
+from prompt_builder import build_context_prompt
 SYSTEM_PROMPT = (
     "You are a regional marketing copywriter. You write short-form copy that "
     "sounds native to one specific market, not like US copy that was translated. "
@@ -200,15 +205,38 @@ def send_email(req: EmailSendRequest, user: dict = Depends(get_current_user)):
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
-    try:
-        response = llm.call_llm(
-            prompt=req.message,
-            system="You are a helpful assistant.",
-            temperature=0.7,
-            max_tokens=200,
-        )
 
-        return ChatResponse(response=response)
+    company = get_company_details()
 
-    except llm.LLMError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    location = get_location()
+
+    weather = get_weather(location)
+
+    trends = get_google_trends(
+        location=location,
+        company=company,
+    )
+
+    trends = select_trends(
+        trends,
+        limit=5,
+    )
+
+    system_prompt, prompt = build_context_prompt(
+        user_message=req.message,
+        company=company,
+        trends=trends,
+        location=location,
+        weather=weather,
+    )
+
+    response = llm.call_llm(
+        prompt=prompt,
+        system=system_prompt,
+        temperature=0.7,
+        max_tokens=500,
+    )
+
+    return ChatResponse(
+        response=response
+    )
