@@ -1,19 +1,17 @@
 """
-Trend/context retrieval -- Session 4 stub, Session 5 real wiring.
+Trend/context retrieval -- still a Session 4/5 stub for trend, real for weather.
 
-get_mock_context() returns placeholder trend data so the rest of the
-pipeline can be built and tested before Google Trends / festival-calendar
-integrations are wired in.
+get_weather() is a REAL working call (Open-Meteo, no API key required).
+get_trend_stub() is a placeholder -- wire up Google Trends here next.
 
-get_weather() is already a REAL working call (Open-Meteo, no API key
-required), so the team has at least one live, grounded signal from week one.
+Since users now select STATES (not cities) in their profile, STATE_TO_CITY
+maps each supported state to a representative city for the weather lookup.
+Expand both dicts as you lock in more launch states.
 """
 
 from typing import Optional
 import requests
 
-# crude city -> lat/lon lookup for early demo regions; expand as you lock
-# in your actual 3-4 US states and 3-4 India states/cities
 CITY_COORDS = {
     "austin": (30.27, -97.74),
     "minneapolis": (44.98, -93.27),
@@ -23,10 +21,19 @@ CITY_COORDS = {
     "chennai": (13.08, 80.27),
 }
 
+STATE_TO_CITY = {
+    "texas": "austin",
+    "minnesota": "minneapolis",
+    "florida": "miami",
+    "maharashtra": "mumbai",
+    "delhi": "delhi",
+    "tamil nadu": "chennai",
+}
+
 
 def get_weather(city: Optional[str]) -> str:
     if not city:
-        return "unknown (no city provided)"
+        return "unknown (no city mapped for this region yet)"
     coords = CITY_COORDS.get(city.lower())
     if not coords:
         return f"unknown ({city} not in coord table yet -- add it to CITY_COORDS)"
@@ -47,14 +54,14 @@ def get_weather(city: Optional[str]) -> str:
 def get_trend_stub(country: str, region: str) -> str:
     """
     TODO (Session 5): replace with a real Google Trends API call filtered
-    to this country/region, plus a relevance-ranking step (see design doc --
-    this is the "Relevance Ranker" component in the architecture).
+    to this country/region, plus a relevance-ranking step.
     """
     return f"[placeholder trend for {region}, {country} -- wire up Google Trends here]"
 
 
-def get_mock_context(country: str, region: str, city: Optional[str]) -> dict:
+def get_mock_context(country: str, region: str, city: Optional[str] = None) -> dict:
+    resolved_city = city or STATE_TO_CITY.get(region.lower())
     return {
         "trend": get_trend_stub(country, region),
-        "weather": get_weather(city),
+        "weather": get_weather(resolved_city),
     }
