@@ -14,7 +14,11 @@ def validate_password_strength(pw: str) -> str:
     if not re.search(r"[A-Za-z]", pw) or not re.search(r"\d", pw):
         raise ValueError("Password must include at least one letter and one number")
     return pw
+class ChatRequest(BaseModel):
+    message: str
 
+class ChatResponse(BaseModel):
+    response: str
 
 class SignupRequest(BaseModel):
     email: EmailStr

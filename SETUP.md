@@ -24,7 +24,7 @@ src/
     │   ├── profile.js
     │   └── app.js
     └── assets/
-        └── logo.png            put your logo here
+        └── logo.png
 ```
 
 ## 1. MongoDB
@@ -40,7 +40,7 @@ cd src/backend
 python -m venv venv
 source venv/bin/activate      # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env
+cp .sample.env .env
 ```
 
 Edit `.env`:
@@ -55,7 +55,7 @@ Runs at `http://localhost:8000`. Check `http://localhost:8000/health`.
 
 ## 3. Frontend setup
 
-No build step. Put your logo at `src/frontend/assets/logo.png`, then open `src/frontend/index.html` in a browser. It'll route you to `login.html` (or straight to `app.html` if already logged in).
+No build step. Open `src/frontend/index.html` in a browser. It'll route you to `login.html` (or straight to `app.html` if already logged in).
 
 ## First-time flow
 

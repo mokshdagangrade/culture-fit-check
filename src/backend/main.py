@@ -9,7 +9,7 @@ email draft/approval flow. See README for what's real vs. still stubbed.
 from datetime import datetime, timezone
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-
+import llm
 from db import users_collection, feedback_collection
 from auth import hash_password, verify_password, create_token, get_current_user
 from models import (
@@ -18,6 +18,7 @@ from models import (
     GenerateRequest, GenerateResponse, TaglineCandidate,
     FeedbackRequest,
     EmailDraftRequest, EmailDraftResponse, EmailSendRequest,
+    ChatRequest, ChatResponse,
 )
 from trend_retrieval import get_mock_context
 
@@ -31,7 +32,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+from services.company_service import get_company_details
+from services.location_service import get_location
+from services.weather_service import get_weather
+from services.trend_service import get_google_trends, select_trends
 
+from prompt_builder import build_context_prompt
 SYSTEM_PROMPT = (
     "You are a regional marketing copywriter. You write short-form copy that "
     "sounds native to one specific market, not like US copy that was translated. "
@@ -196,3 +202,41 @@ def send_email(req: EmailSendRequest, user: dict = Depends(get_current_user)):
         "status": "stubbed",
         "note": "No real email was sent -- this endpoint is a placeholder for the send integration.",
     }
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(req: ChatRequest):
+
+    company = get_company_details()
+
+    location = get_location()
+
+    weather = get_weather(location)
+
+    trends = get_google_trends(
+        location=location,
+        company=company,
+    )
+
+    trends = select_trends(
+        trends,
+        limit=5,
+    )
+
+    system_prompt, prompt = build_context_prompt(
+        user_message=req.message,
+        company=company,
+        trends=trends,
+        location=location,
+        weather=weather,
+    )
+
+    response = llm.call_llm(
+        prompt=prompt,
+        system=system_prompt,
+        temperature=0.7,
+        max_tokens=500,
+    )
+
+    return ChatResponse(
+        response=response
+    )
