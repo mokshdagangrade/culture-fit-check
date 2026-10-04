@@ -6,8 +6,8 @@ const INDIA_STATES = new Set(['Maharashtra', 'Delhi', 'Tamil Nadu']); // keep in
 const STEPS = [
   { emoji: '🧠', label: 'Read brief',    title: 'Reading your brief',     text: 'Picks out what you\u2019re promoting, the mood, and what you want people to do.' },
   { emoji: '🎨', label: 'Learn voice',   title: 'Learning your voice',    text: 'Studies your brand tone and past posts so drafts sound like you, not a robot.' },
-  { emoji: '🌦️', label: 'Check weather', title: 'Checking local weather', text: 'Looks up the real weather in each of your states for something timely to say.' },
-  { emoji: '📈', label: 'Scan trends',   title: 'Scanning local trends',  text: 'Finds what people in each state are talking about right now.' },
+  { emoji: '🌦️', label: 'Set markets', title: 'Setting target markets', text: 'Uses your selected states to guide each draft.' },
+  { emoji: '📈', label: 'Use context',   title: 'Reading campaign context',  text: 'Uses available recent state signals alongside your brief and past drafts.' },
   { emoji: '✍️', label: 'Draft',         title: 'Drafting per state',     text: 'Writes a separate draft for every state, in parallel.' },
   { emoji: '⚖️', label: 'Review',        title: 'Lining up for review',   text: 'Sets the drafts up for your approval. Your thumbs up and down shape the next run.' },
 ];
@@ -44,10 +44,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   Loop.build();
   Loop.start();
   renderGhosts();
-  logIdle();
   wireComposer();
   wireResults();
   wireEmail();
+  $('retry-generation').addEventListener('click', async () => {
+    if (busy) return;
+    busy = true; $('send-btn').disabled = true;
+    try { await runLoop(); } finally { busy = false; $('send-btn').disabled = false; }
+  });
   greet();
 });
 
@@ -203,18 +207,13 @@ async function onSend(e) {
     if (!text) {
         addBot('<p>Got it. What should we post about?</p>');
     } else {
-        const typing = addTyping();
-
-        const data = await authFetch('/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-                message: text
-            }),
-        });
-
-        typing.remove();
-
-        addBot(`<p>${escapeHtml(data.response)}</p>`);
+        if (/^(hi|hello|hey|thanks|thank you)[!. ]*$/i.test(text)) {
+          const data = await authFetch('/chat', {method: 'POST', body: JSON.stringify({message: text})});
+          addBot(`<div class="markdown">${renderMarkdown(data.response)}</div>`);
+        } else {
+          lastBrief = {prompt: text, contentType};
+          await runLoop();
+        }
     }
   } catch (err) {
     addBot(`<p>That didn\u2019t work: ${escapeHtml(err.message)}</p>`);
@@ -373,30 +372,15 @@ function setStatus(state, text) {
 
 /* ---------- Run log ---------- */
 let runStart = 0;
-function logIdle() {
-  $('trace-log').innerHTML = '<div class="tl idle">Waiting for your first brief. Each step of the loop will be logged here.</div>';
-}
-function log(tag, msg, err = false) {
-  const box = $('trace-log');
-  if (box.querySelector('.idle')) box.innerHTML = '';
-  const t = ((performance.now() - runStart) / 1000).toFixed(1);
-  const row = document.createElement('div');
-  row.className = 'tl' + (err ? ' err' : '');
-  row.innerHTML = `<span class="t">${t}s</span><span class="tag">${escapeHtml(tag)}</span><span class="msg">${escapeHtml(msg)}</span>`;
-  box.appendChild(row);
-  box.scrollTop = box.scrollHeight;
-}
-
 /* ---------- The run ---------- */
 async function runLoop({ statesOverride = null, quiet = false } = {}) {
   const { prompt, contentType: ctype } = lastBrief;
   const states = statesOverride || profile.states;
   const typing = quiet ? null : addTyping();
 
+  $('retry-generation').hidden = true;
   Loop.begin();
   setStatus('running', 'Running');
-  $('trace').open = true;
-  $('trace-log').innerHTML = '';
   $('pipeline-note').textContent = '';
   runStart = performance.now();
   renderSkeletons(states);
@@ -409,22 +393,19 @@ async function runLoop({ statesOverride = null, quiet = false } = {}) {
   request.catch(() => {});
 
   const step = async (i, tag, msg, ms = 700) => {
-    Loop.activate(i); log(tag, msg); await wait(reduceMotion ? 0 : ms);
+    Loop.activate(i); await wait(reduceMotion ? 0 : ms);
   };
 
   let activeStep = 0;
   try {
     activeStep = 0; await step(0, 'brief', `"${prompt.length > 60 ? prompt.slice(0, 60) + '\u2026' : prompt}" as a ${ctype}`);
     activeStep = 1; await step(1, 'voice', `tone: ${profile.tone || 'neutral'}, ${(profile.past_taglines || []).length} saved example${(profile.past_taglines || []).length === 1 ? '' : 's'}`);
-    activeStep = 2; await step(2, 'weather', `asking Open-Meteo for ${states.join(', ')}`);
-    activeStep = 3; await step(3, 'trends', `looking up trends for ${states.length} state${states.length === 1 ? '' : 's'}`);
-    activeStep = 4; Loop.activate(4); log('draft', `writing ${states.length} draft${states.length === 1 ? '' : 's'}`);
+    activeStep = 2; await step(2, 'weather', `using selected markets: ${states.join(', ')}`);
+    activeStep = 3; await step(3, 'trends', `live data APIs deferred; drafting from your brand and brief`);
+    activeStep = 4; Loop.activate(4);
 
     const data = await request;
-    data.results.forEach((r) => {
-      const c = r.grounding_context || {};
-      log('weather', `${r.state}: ${c.weather}`);
-    });
+
     await wait(reduceMotion ? 0 : 400);
     activeStep = 5; await step(5, 'review', `${data.results.length} draft${data.results.length === 1 ? '' : 's'} ready`, 600);
 
@@ -440,13 +421,12 @@ async function runLoop({ statesOverride = null, quiet = false } = {}) {
     Loop.complete();
     setStatus('done', `${data.results.length} draft${data.results.length === 1 ? '' : 's'} ready`);
     $('pipeline-note').textContent = data.note;
-    $('trace').open = false;
     updateEmailVisibility();
     if (typing) typing.remove();
     if (!quiet) addBot(`<p>Done. ${data.results.length} draft${data.results.length === 1 ? ' is' : 's are'} on the right, one per state.</p><p>Give each a \ud83d\udc4d or \ud83d\udc4e, then tap <b>Use this</b> on your favorites and I\u2019ll help you email them.</p>`);
   } catch (err) {
+    $('retry-generation').hidden = false;
     Loop.fail(activeStep);
-    log('error', err.message, true);
     setStatus('error', 'Stopped');
     renderCards();
     if (typing) typing.remove();
@@ -482,27 +462,19 @@ function renderCards() {
 }
 
 function ctxChips(context) {
-  if (!context) return '';
-  const chips = [];
-  if (context.weather) chips.push(`<span title="${escapeHtml(context.weather)}">🌦️ ${escapeHtml(context.weather)}</span>`);
-  if (context.trend) {
-    const stub = String(context.trend).startsWith('[placeholder');
-    chips.push(`<span title="${escapeHtml(context.trend)}">📈 ${stub ? 'Trends not connected yet' : escapeHtml(context.trend)}</span>`);
-  }
-  return chips.length ? `<div class="ctx">${chips.join('')}</div>` : '';
+  if (!context || !Object.keys(context).length) return '<div class="ctx"><span>No recent state data available</span></div>';
+  return `<details class="source-context"><summary>Context supplied to AI · ${Object.keys(context).length} source(s)</summary><p>The AI uses relevant signals when they fit your brief; availability does not mean each signal appears in the draft.</p>${Object.entries(context).map(([name, signal]) => `<div><strong>${escapeHtml(name)}</strong>${signal.date ? ` · ${escapeHtml(signal.date)}` : ''}${signal.source ? ` · ${escapeHtml(signal.source)}` : ''}${signal.scope ? ` · ${escapeHtml(signal.scope)}` : ''}${signal.confidence ? ` · ${escapeHtml(signal.confidence)}` : ''}<pre>${escapeHtml(typeof signal === 'object' ? JSON.stringify(signal.data, null, 2) : String(signal))}</pre></div>`).join('')}</details>`;
 }
 
 function cardTemplate(state) {
   const candidates = currentCandidates[state] || [];
   const country = INDIA_STATES.has(state) ? 'India' : 'US';
-  const latest = candidates[candidates.length - 1];
   return `
     <div class="state-card" data-state="${escapeHtml(state)}" data-country="${country}">
       <div class="state-card-head">
         <span class="state-name">${escapeHtml(state)}</span>
         <button class="regen-btn" type="button" data-action="regen">Regenerate</button>
       </div>
-      ${ctxChips(latest && latest.context)}
       <div class="candidate-list">
         ${candidates.map((c, i) => candidateTemplate(state, i, c)).join('')}
       </div>
@@ -513,8 +485,10 @@ function candidateTemplate(state, index, c) {
   const isSelected = selectedTaglines[state] === c.text;
   return `
     <div class="candidate-row ${isSelected ? 'selected' : ''}" data-index="${index}">
-      <div class="candidate-text">${escapeHtml(c.text)}</div>
+      ${ctxChips(c.context)}
+      <div class="candidate-text">${renderMarkdown(c.text)}</div>
       <div class="candidate-actions">
+        <button type="button" class="use-btn" data-action="copy" aria-label="Copy draft for ${escapeHtml(state)}">Copy</button>
         <button type="button" class="thumb ${c.thumbs === 'up' ? 'active' : ''}" data-action="up" aria-label="Thumbs up" aria-pressed="${c.thumbs === 'up'}">👍</button>
         <button type="button" class="thumb ${c.thumbs === 'down' ? 'active' : ''}" data-action="down" aria-label="Thumbs down" aria-pressed="${c.thumbs === 'down'}">👎</button>
         <button type="button" class="use-btn" data-action="use">${isSelected ? 'Selected' : 'Use this'}</button>
@@ -533,6 +507,7 @@ function wireResults() {
     if (!btn) return;
     const card = btn.closest('.state-card');
     const state = card.dataset.state;
+    if (btn.dataset.action === 'copy') return copyContent(btn, btn.closest('.candidate-row').querySelector('.candidate-text'));
     if (btn.dataset.action === 'regen') return regenerateState(state);
     const index = Number(btn.closest('.candidate-row').dataset.index);
     if (btn.dataset.action === 'use') return selectTagline(state, index);

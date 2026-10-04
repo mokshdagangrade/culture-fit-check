@@ -17,17 +17,20 @@ from pathlib import Path
 from dotenv import load_dotenv
 from pymongo import MongoClient
 
-load_dotenv(Path(__file__).parent / ".env")
+PIPELINE_DIR = Path(__file__).resolve().parent
+# Existing environment and pipeline settings take precedence; backend is fallback.
+load_dotenv(PIPELINE_DIR / ".env", override=False)
+load_dotenv(PIPELINE_DIR.parents[1] / "src" / "backend" / ".env", override=False)
 
-OUT_DIR = Path(__file__).parent / "out"
-DB_NAME = "wavelength"
+OUT_DIR = PIPELINE_DIR / "out"
+DB_NAME = os.getenv("MONGODB_DB_NAME", "wavelength")
 COLLECTION_NAME = "state_signals_daily"
 
 
 def load_file(json_path: Path) -> int:
-    mongo_uri = os.environ.get("MONGO_URI")
+    mongo_uri = os.environ.get("MONGODB_URI") or os.environ.get("MONGO_URI")
     if not mongo_uri:
-        raise RuntimeError("MONGO_URI is not set in .env (e.g. mongodb://localhost:27017)")
+        raise RuntimeError("Set MONGODB_URI in src/backend/.env or data/pipeline/.env (legacy MONGO_URI is also supported)")
 
     with open(json_path) as f:
         docs = json.load(f)

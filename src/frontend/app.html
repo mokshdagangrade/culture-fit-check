@@ -30,6 +30,7 @@
           <div class="profile-dropdown" id="profile-dropdown">
             <div class="who"><b id="brand-name-display">Account</b><span id="email-display"></span></div>
             <a href="profile.html">Brand settings</a>
+            <a href="history.html">History</a>
             <button id="logout-btn" type="button">Log out</button>
           </div>
         </div>
@@ -50,6 +51,8 @@
           <button type="button" data-type="caption" aria-pressed="true">Caption</button>
           <button type="button" data-type="notification" aria-pressed="false">Notification</button>
           <button type="button" data-type="meme" aria-pressed="false">Meme</button>
+          <button type="button" data-type="email" aria-pressed="false">Email</button>
+          <button type="button" data-type="newsletter" aria-pressed="false">Newsletter</button>
         </div>
         <button class="send" id="send-btn" type="submit" aria-label="Send">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
@@ -75,13 +78,9 @@
       </div>
     </section>
 
-    <details class="trace" id="trace" open>
-      <summary>Run log</summary>
-      <div class="trace-log" id="trace-log"></div>
-    </details>
-
     <section class="results" id="results" aria-label="Drafts by state"></section>
     <div class="note" id="pipeline-note"></div>
+    <button class="btn-ghost" id="retry-generation" type="button" hidden>Retry last brief</button>
 
     <section class="email-section" id="email-section" hidden>
       <h2>Send an update</h2>

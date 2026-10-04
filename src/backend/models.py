@@ -1,7 +1,8 @@
 """Pydantic request/response schemas."""
 
 import re
-from typing import Optional
+from typing import Optional, Literal
+from regions import SUPPORTED_STATES
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
@@ -15,7 +16,7 @@ def validate_password_strength(pw: str) -> str:
         raise ValueError("Password must include at least one letter and one number")
     return pw
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(min_length=1, max_length=4000)
 
 class ChatResponse(BaseModel):
     response: str
@@ -51,6 +52,9 @@ class AuthResponse(BaseModel):
 
 
 class ProfileUpdate(BaseModel):
+    description: Optional[str] = None
+    target_audience: Optional[str] = None
+    products: Optional[str] = None
     business_name: Optional[str] = None
     industry: Optional[str] = None
     tone: Optional[str] = None
@@ -58,7 +62,16 @@ class ProfileUpdate(BaseModel):
     past_taglines: Optional[list[str]] = None
 
 
+    @field_validator("states")
+    @classmethod
+    def check_states(cls, value):
+        return validate_states(value)
+
+
 class ProfileResponse(BaseModel):
+    description: Optional[str] = None
+    target_audience: Optional[str] = None
+    products: Optional[str] = None
     email: str
     business_name: Optional[str] = None
     industry: Optional[str] = None
@@ -69,9 +82,15 @@ class ProfileResponse(BaseModel):
 
 
 class GenerateRequest(BaseModel):
-    prompt: str
-    content_type: str = "caption"  # "caption" | "notification" | "meme"
+    prompt: str = Field(min_length=1, max_length=4000)
+    content_type: Literal["caption", "notification", "meme", "email", "newsletter"] = "caption"
     states: Optional[list[str]] = None  # defaults to profile states if omitted
+
+
+    @field_validator("states")
+    @classmethod
+    def check_states(cls, value):
+        return validate_states(value)
 
 
 class TaglineCandidate(BaseModel):
@@ -105,3 +124,11 @@ class EmailSendRequest(BaseModel):
     subject: str
     body: str
     approved: bool
+
+
+def validate_states(value):
+    if value is not None:
+        if any(state not in SUPPORTED_STATES for state in value):
+            raise ValueError("Unsupported state selected")
+        return list(dict.fromkeys(value))
+    return value
