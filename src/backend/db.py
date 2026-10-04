@@ -20,6 +20,9 @@ db = client[DB_NAME]
 
 users_collection = db["users"]
 feedback_collection = db["feedback"]
+state_signals_collection = db["state_signals_daily"]
+history_collection = db["history"]
+history_collection.create_index([("user_id", 1), ("created_at", -1)])
 
 # one account per email
 users_collection.create_index("email", unique=True)

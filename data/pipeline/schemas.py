@@ -20,7 +20,7 @@ data before insert and documents the schema in one place.
 """
 
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -33,6 +33,25 @@ def _validate_state_code(v: str) -> str:
     return v
 
 
+class ErrorDoc(BaseModel):
+    source: str
+    error: str
+    fetched_at: datetime
+
+
+class GeoTag(BaseModel):
+    scope: Literal["national", "region", "division", "state", "city"]
+    state_code: Optional[str] = None
+    census_region: Optional[str] = None
+    census_division: Optional[str] = None
+    confidence: Literal["exact", "inferred", "guessed", "unreliable"] = "inferred"
+
+    @field_validator("state_code")
+    @classmethod
+    def valid_state(cls, value):
+        return _validate_state_code(value) if value is not None else None
+
+
 class SourceMeta(BaseModel):
     """Recorded on every raw document, regardless of source."""
     source: str                    # e.g. "open-meteo", "gdelt"
@@ -40,9 +59,12 @@ class SourceMeta(BaseModel):
     fetched_at: datetime
     status: str = "ok"             # "ok" | "error" | "empty"
     error: Optional[str] = None
+    data_time: Optional[datetime] = None
+    query: Optional[str] = None
 
 
 class WeatherDoc(BaseModel):
+    geo: Optional[GeoTag] = None
     state_code: str
     date: date
     meta: SourceMeta
@@ -67,6 +89,7 @@ class NewsArticle(BaseModel):
 
 
 class NewsDoc(BaseModel):
+    geo: Optional[GeoTag] = None
     state_code: str
     date: date
     meta: SourceMeta
@@ -85,6 +108,7 @@ class TrendItem(BaseModel):
 
 
 class TrendsDoc(BaseModel):
+    geo: Optional[GeoTag] = None
     """
     Google's public "Trending now" RSS feed (via the trendspyg
     library), not the gated Trends API. It has no historical window
@@ -121,6 +145,7 @@ class Holiday(BaseModel):
 
 
 class CalendarDoc(BaseModel):
+    geo: Optional[GeoTag] = None
     state_code: str
     date: date
     meta: SourceMeta
@@ -139,6 +164,7 @@ class RedditPost(BaseModel):
 
 
 class SocialDoc(BaseModel):
+    geo: Optional[GeoTag] = None
     """
     Reddit has no official state->subreddit mapping. `subreddit` is
     a best-effort guess (state name, spaces removed, e.g. "Texas",
@@ -187,6 +213,45 @@ class SportsDoc(BaseModel):
     events: list[SportsEvent] = Field(default_factory=list)
 
 
+class EventItem(BaseModel):
+    name: str
+    url: Optional[str] = None
+    start_date: Optional[str] = None
+    venue_name: Optional[str] = None
+    venue_city: Optional[str] = None
+    venue_state: Optional[str] = None
+    classification: Optional[str] = None
+    genre: Optional[str] = None
+    price_min: Optional[float] = None
+    price_max: Optional[float] = None
+
+
+class EventsDoc(BaseModel):
+    state_code: str
+    date: date
+    meta: SourceMeta
+    geo: Optional[GeoTag] = None
+    events: list[EventItem] = Field(default_factory=list)
+    _v_state = field_validator("state_code")(_validate_state_code)
+
+
+class YoutubeVideoItem(BaseModel):
+    title: str
+    video_id: str
+    channel_title: Optional[str] = None
+    category_id: Optional[str] = None
+    view_count: Optional[int] = None
+    published_at: Optional[str] = None
+
+
+class YoutubeDoc(BaseModel):
+    scope: Literal["national"] = "national"
+    country_code: str = "US"
+    date: date
+    meta: SourceMeta
+    videos: list[YoutubeVideoItem] = Field(default_factory=list)
+
+
 class StitchedSignals(BaseModel):
     """The joined payload inside a StitchedDoc."""
     weather: Optional[WeatherDoc] = None
@@ -196,6 +261,8 @@ class StitchedSignals(BaseModel):
     calendar: Optional[CalendarDoc] = None
     social: Optional[SocialDoc] = None
     sports: Optional[SportsDoc] = None
+    events: Optional[EventsDoc] = None
+    youtube: Optional[YoutubeDoc] = None
 
 
 class StitchedDoc(BaseModel):
@@ -205,7 +272,8 @@ class StitchedDoc(BaseModel):
     """
     state_code: str
     state_name: str
-    region: str
+    census_region: str
+    census_division: str
     date: date
     stitched_at: datetime
     sources_present: list[str]                 # e.g. ["weather", "news", "calendar"]

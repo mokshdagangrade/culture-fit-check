@@ -1,10 +1,3 @@
-// Launch regions -- expand as your team locks in more states (see
-// STATE_TO_CITY in trend_retrieval.py, which must stay in sync with this list).
-const AVAILABLE_STATES = [
-  { group: 'US', states: ['Texas', 'Minnesota', 'Florida'] },
-  { group: 'India', states: ['Maharashtra', 'Delhi', 'Tamil Nadu'] },
-];
-
 document.addEventListener('DOMContentLoaded', async () => {
   requireAuth();
 
@@ -15,7 +8,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('back-link').hidden = isOnboarding;
 
   const statesContainer = document.getElementById('states-container');
-  AVAILABLE_STATES.forEach(({ group, states }) => {
+  const availableStates = await authFetch("/regions");
+  availableStates.forEach(({ group, states }) => {
     const groupEl = document.createElement('div');
     groupEl.innerHTML = `<div class="state-group-label">${group}</div>`;
     states.forEach((state) => {
@@ -30,6 +24,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   try {
     const profile = await authFetch('/me');
+    ['description', 'target_audience', 'products'].forEach(id => document.getElementById(id).value = profile[id] || '');
     document.getElementById('business_name').value = profile.business_name || '';
     document.getElementById('industry').value = profile.industry || '';
     document.getElementById('tone').value = profile.tone || '';
@@ -71,6 +66,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     showError('');
 
     const values = {
+      ...Object.fromEntries(['description', 'target_audience', 'products'].map(id => [id, document.getElementById(id).value.trim()])),
       business_name: document.getElementById('business_name').value.trim(),
       industry: document.getElementById('industry').value.trim(),
       tone: document.getElementById('tone').value.trim(),

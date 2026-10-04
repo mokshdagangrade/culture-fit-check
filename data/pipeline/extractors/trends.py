@@ -1,6 +1,5 @@
 from datetime import date, datetime, timezone
 
-from trendspyg import download_google_trends_rss
 
 from http_client import throttle_host
 from schemas import TrendsDoc, TrendItem, SourceMeta, GeoTag
@@ -9,6 +8,8 @@ RSS_HOST = "trends.google.com"
 
 
 def fetch_trends(state: dict, limit: int = 10) -> TrendsDoc:
+    from trendspyg import download_google_trends_rss
+
     geo = f"US-{state['code']}"
     throttle_host(RSS_HOST)
     env = download_google_trends_rss(geo=geo, normalize=True)

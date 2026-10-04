@@ -113,3 +113,55 @@ function passwordScore(pw) {
   if (/[^A-Za-z0-9]/.test(pw) && /[A-Z]/.test(pw)) s++;
   return Math.max(s, 1);
 }
+
+/* Small Markdown renderer: escape source HTML first; links remain plain text. */
+function renderMarkdown(raw) {
+  function inline(text) {
+    return escapeHtml(text)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/__([^_]+)__/g, '<strong>$1</strong>')
+      .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+      .replace(/(^|\s)_([^_\n]+)_(?=\s|$|[.,!?])/g, '$1<em>$2</em>');
+  }
+  let list = null;
+  let html = '';
+  for (const line of String(raw || '').split(/\r?\n/)) {
+    const bullet = line.match(/^\s*[-*+]\s+(.+)$/);
+    const ordered = line.match(/^\s*\d+[.)]\s+(.+)$/);
+    const type = bullet ? 'ul' : ordered ? 'ol' : null;
+    if (list && list !== type) { html += `</${list}>`; list = null; }
+    if (type) {
+      if (!list) { html += `<${type}>`; list = type; }
+      html += `<li>${inline((bullet || ordered)[1])}</li>`;
+    } else if (/^#{1,6}\s/.test(line)) {
+      html += `<p><strong>${inline(line.replace(/^#{1,6}\s+/, ''))}</strong></p>`;
+    } else {
+      html += line.trim() ? `<div>${inline(line)}</div>` : '<br>';
+    }
+  }
+  if (list) html += `</${list}>`;
+  return html;
+}
+
+async function copyContent(button, contentElement) {
+  const text = contentElement.innerText.trim();
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const field = document.createElement('textarea');
+      field.value = text;
+      field.style.position = 'fixed';
+      field.style.opacity = '0';
+      document.body.appendChild(field);
+      try {
+        field.select();
+        if (!document.execCommand('copy')) throw new Error('Copy unavailable');
+      } finally { field.remove(); button.focus(); }
+    }
+    button.textContent = 'Copied!';
+  } catch (err) { button.textContent = 'Select text to copy'; }
+  setTimeout(() => { button.textContent = 'Copy'; }, 2500);
+}

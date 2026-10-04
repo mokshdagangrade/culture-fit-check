@@ -37,3 +37,25 @@ Given a piece of short-form copy and a target region, Wavelength returns:
 ├── data/           # Datasets and annotation guidelines (see licensing notes in reports/)
 └── README.md
 ```
+
+
+### Brand drafts and history
+
+The authenticated MongoDB user profile supplies company name, industry, tone, description, audience, products, and saved style examples. Settings supports all 50 US states and the existing three India markets. The composer generates captions, notifications, meme concepts, emails, and newsletters through the configured OpenAI-compatible provider (including Gemini). Recent account history supplies context for follow-up requests; the History page shows the latest 100 briefs and responses. Recent weather, trends, news, calendar, and events from the data pipeline’s `state_signals_daily` MongoDB collection now ground US drafts when available; email sending remains a stub. Empty or truncated model output is reported as a generation failure rather than displayed as a draft.
+
+Offline regression checks: `cd src/backend && python3 -m unittest test_generation -v`.
+
+
+### Regional API context
+
+Run `data/pipeline/run_extract.py` to fetch source responses, then `data/pipeline/load_mongo.py` to load them. Configure the pipeline with the same MongoDB URI and database as the backend (`MONGODB_URI` / `MONGODB_DB_NAME`; legacy `MONGO_URI` is supported by the loader). The extractor needs the dependencies in `data/pipeline/requirements.txt` and source keys for keyed APIs. Generation reads the latest state document from today or yesterday, caps each list at three items, and skips failed, national, guessed, and mismatched state sources. Weather represents the capital city. Missing data does not block drafting. The API data must be refreshed by rerunning the pipeline; generation does not trigger extraction.
+
+Drafts and history render basic Markdown (bold, italic, headings, lists, inline code) with source HTML escaped. The run log has been removed from the app.
+
+
+### Hosted Hugging Face inference (current configuration)
+
+Set `HF_TOKEN` in `src/backend/.env` to a Hugging Face token with **Make calls to Inference Providers** permission. The app uses `https://router.huggingface.co/v1` and `Qwen/Qwen3-4B-Instruct-2507`. Only models served by Inference Providers can be called; a Hub repository alone does not guarantee hosted availability. Hosted inference consumes account credits and remains subject to provider limits. Restart the backend after editing configuration. No model download is needed.
+
+
+State generation now includes every supported nonempty successful source type: weather, news, trends, calendar, events, confirmed social posts, and national sports, attention, and YouTube. National scope and guessed Reddit geography remain explicit in the prompt and source details. Payloads include up to ten items per list with text capped at 500 characters; source URLs are omitted. Missing, failed, unconfirmed, unreliable, or mismatched sources are skipped.

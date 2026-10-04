@@ -372,3 +372,15 @@ body.app { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
 }
+
+.history-entry {padding: 16px; margin-bottom: 16px; border: 1px solid var(--border); border-radius: 12px;}
+.history-copy, .candidate-text {white-space: pre-wrap;}
+#content-type {flex-wrap: wrap;}
+
+.candidate-text, .history-copy {white-space: normal;}
+.candidate-text ul, .candidate-text ol, .history-copy ul, .history-copy ol {padding-left: 1.4em;}
+.candidate-text p, .history-copy p {margin: .6em 0;}
+
+.source-context {font-size: .85rem; margin-bottom: 12px;}
+.source-context summary {cursor: pointer;}
+.source-context pre {white-space: pre-wrap; overflow-wrap: anywhere;}
