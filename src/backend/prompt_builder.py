@@ -1,23 +1,51 @@
-def format_trends(trends: list) -> str:
-    if not trends:
-        return "No trend information available."
+def format_volume(volume) -> str | None:
+    """Google reports a floor, not a count -- render it as the floor it is."""
+    if not isinstance(volume, int) or volume <= 0:
+        return None
+    if volume >= 1_000_000:
+        return f"{volume // 1_000_000}M+ searches"
+    if volume >= 1_000:
+        return f"{volume // 1_000}K+ searches"
+    return f"{volume}+ searches"
 
-    formatted = []
+
+def format_trends(trends: list) -> str:
+    """
+    Renders pipeline TrendItems (keyword / rank / volume_min / news_headline).
+    The older {topic, score} shape is still accepted so nothing breaks if a
+    caller passes it.
+    """
+    if not trends:
+        return "No trend data available for this location today."
+
+    lines = []
 
     for i, trend in enumerate(trends, 1):
-        topic = trend.get("topic", "Unknown")
-        score = trend.get("score")
+        keyword = trend.get("keyword") or trend.get("topic") or "Unknown"
 
-        if score is not None:
-            formatted.append(
-                f"{i}. {topic} (trend score: {score})"
-            )
-        else:
-            formatted.append(
-                f"{i}. {topic}"
-            )
+        facts = []
+        rank = trend.get("rank")
+        if rank is not None:
+            facts.append(f"rank {rank}")
+        volume = format_volume(trend.get("volume_min"))
+        if volume:
+            facts.append(volume)
+        if trend.get("score") is not None:
+            facts.append(f"trend score: {trend['score']}")
 
-    return "\n".join(formatted)
+        lines.append(f"{i}. {keyword}" + (f" ({', '.join(facts)})" if facts else ""))
+
+        headline = trend.get("news_headline")
+        if headline:
+            lines.append(f'   headline: "{headline}"')
+
+    return "\n".join(lines)
+
+
+def describe_location(location: dict) -> str:
+    parts = [location.get("city"), location.get("state"), location.get("country")]
+    named = [p for p in parts if p and p != "Unknown"]
+    return ", ".join(named) if named else "this market"
 
 
 def build_context_prompt(
@@ -26,6 +54,7 @@ def build_context_prompt(
     trends: list | None = None,
     location: dict | None = None,
     weather: dict | None = None,
+    trends_as_of: str | None = None,
 ) -> tuple[str, str]:
 
     company = company or {}
@@ -109,7 +138,16 @@ Description:
 
 ## CURRENT TRENDS
 
+## LOCAL TREND SIGNALS -- {describe_location(location)}{f", {trends_as_of}" if trends_as_of else ""}
+
 {format_trends(trends)}
+
+These are search trends for this location on this date, already filtered for
+sensitive topics. They are what people searched, not endorsements. Use at most
+one, and only where it genuinely fits the brand and the current brief. Do not
+claim local popularity, sponsorship, attendance or affiliation, and do not
+treat a headline as a verified fact about the brand's market. If none of them
+fit, write the copy without a trend hook rather than forcing one.
 
 
 ## USER REQUEST
