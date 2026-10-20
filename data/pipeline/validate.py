@@ -84,10 +84,29 @@ def check_batch(stitched_docs: list, expected_date) -> dict:
     for d in stitched_docs:
         for src_name in d.sources_present:
             src_doc = getattr(d.signals, src_name)
-            if src_doc is not None and (now - src_doc.meta.fetched_at).total_seconds() > 3600:
+            # Country calendars deliberately retain their original cached fetch time.
+            # Calendar cache expiry is checked by the extractor, not this hourly rule.
+            if src_name != "calendar" and src_doc is not None and (now - src_doc.meta.fetched_at).total_seconds() > 3600:
                 stale.append((d.state_code, src_name))
     if stale:
         report["warnings"].append(f"fetched over an hour before validation ran: {stale}")
 
     report["ok"] = len(report["errors"]) == 0
     return report
+
+
+def check_snapshot_pair(state_docs, national):
+    """Check batch provenance without merging national content into states.
+
+    Legacy embedded snapshots need no companion. A run ID is metadata that
+    prevents mixing two same-day collection runs, not a content reference.
+    """
+    for doc in state_docs:
+        run_id = doc.get("run_id")
+        if run_id is None:
+            continue
+        if national is None:
+            raise ValueError(f"Missing national snapshot for {doc['date']}")
+        expected = {"date": doc["date"], "country_code": doc.get("country_code", "US"), "run_id": run_id}
+        if any(national.get(key) != value for key, value in expected.items()):
+            raise ValueError("State and national snapshots come from different countries, dates or runs")

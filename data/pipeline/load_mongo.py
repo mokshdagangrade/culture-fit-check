@@ -12,10 +12,12 @@ Usage:
 import argparse
 import json
 import os
+from datetime import date
 from pathlib import Path
 
 from dotenv import load_dotenv
 from pymongo import MongoClient
+from validate import check_snapshot_pair
 
 PIPELINE_DIR = Path(__file__).resolve().parent
 # Existing environment and pipeline settings take precedence; backend is fallback.
@@ -35,19 +37,28 @@ def load_file(json_path: Path) -> int:
     with open(json_path) as f:
         docs = json.load(f)
 
+    national = None
+    if docs:
+        day = docs[0]["date"]
+        date.fromisoformat(day)
+        national_path = json_path.parent / f"national_signals_daily_{day}.json"
+        if national_path.exists():
+            national = json.loads(national_path.read_text())
+        check_snapshot_pair(docs, national)
+
     client = MongoClient(mongo_uri)
-    collection = client[DB_NAME][COLLECTION_NAME]
-
     upserted = 0
-    for doc in docs:
-        collection.replace_one(
-            {"state_code": doc["state_code"], "date": doc["date"]},
-            doc,
-            upsert=True,
-        )
-        upserted += 1
-
-    client.close()
+    try:
+        collection = client[DB_NAME][COLLECTION_NAME]
+        if national is not None:
+            client[DB_NAME]["national_signals_daily"].replace_one(
+                {"country_code": national["country_code"], "date": national["date"]}, national, upsert=True)
+        for doc in docs:
+            collection.replace_one(
+                {"state_code": doc["state_code"], "date": doc["date"]}, doc, upsert=True)
+            upserted += 1
+    finally:
+        client.close()
     return upserted
 
 
@@ -56,7 +67,7 @@ def main():
     parser.add_argument("--date", help="YYYY-MM-DD; defaults to today")
     args = parser.parse_args()
 
-    date_str = args.date or __import__("datetime").date.today().isoformat()
+    date_str = args.date or date.today().isoformat()
     json_path = OUT_DIR / f"state_signals_daily_{date_str}.json"
 
     if not json_path.exists():

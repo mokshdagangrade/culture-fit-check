@@ -29,7 +29,8 @@ class NoDataAvailable(Exception):
     pass
 
 
-def fetch_top_attention(country_code: str = "US", limit: int = 20, timeout: int = 10) -> AttentionDoc:
+def fetch_top_attention(country_code: str = "US", limit: int = 20, timeout: int = 10,
+                        max_days_back: int = MAX_DAYS_BACK) -> AttentionDoc:
     contact = os.environ.get("WIKIMEDIA_CONTACT")
     if not contact:
         raise RuntimeError(
@@ -39,7 +40,7 @@ def fetch_top_attention(country_code: str = "US", limit: int = 20, timeout: int 
     headers = {"User-Agent": f"wavelength-pipeline/0.1 ({contact})"}
 
     last_404 = None
-    for days_back in range(1, MAX_DAYS_BACK + 1):
+    for days_back in range(1, max_days_back + 1):
         target_day = datetime.now(timezone.utc).date() - timedelta(days=days_back)
         url = f"{BASE_URL}/{country_code}/all-access/{target_day.strftime('%Y/%m/%d')}"
 
@@ -69,5 +70,5 @@ def fetch_top_attention(country_code: str = "US", limit: int = 20, timeout: int 
 
     raise NoDataAvailable(
         f"Wikimedia had no top-per-country data for {country_code} for the last "
-        f"{MAX_DAYS_BACK} days (last tried {last_404})."
+        f"{max_days_back} days (last tried {last_404})."
     )

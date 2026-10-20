@@ -21,6 +21,8 @@ db = client[DB_NAME]
 users_collection = db["users"]
 feedback_collection = db["feedback"]
 state_signals_collection = db["state_signals_daily"]
+# One row per text signal, written by data/pipeline/load_candidates.py.
+signal_candidates_collection = db["signal_candidates"]
 history_collection = db["history"]
 history_collection.create_index([("user_id", 1), ("created_at", -1)])
 

@@ -56,6 +56,7 @@ def fetch_news(state: dict, max_records: int = 10, timeout: int = 15) -> NewsDoc
             query=query, status="empty" if not articles else "ok",
         ),
         geo=GeoTag(scope="state", state_code=state["code"], confidence="inferred"),
+        query=query,
         article_count=len(articles),
         articles=articles,
     )

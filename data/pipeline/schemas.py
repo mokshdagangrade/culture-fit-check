@@ -142,6 +142,8 @@ class Holiday(BaseModel):
     date: str
     type: Optional[str] = None
     state_specific: bool = False
+    is_national: Optional[bool] = None
+    observance_note: Optional[str] = None
 
 
 class CalendarDoc(BaseModel):
@@ -189,6 +191,8 @@ class SportsEvent(BaseModel):
     (e.g. "Georgia Bulldogs" + venue "Athens, GA" -> "GA"), so
     normalizing it here would just be duplicate, lower-quality work.
     """
+    league: Optional[str] = None
+    event_id: Optional[str] = None
     home_team: Optional[str] = None
     away_team: Optional[str] = None
     venue_name: Optional[str] = None
@@ -200,14 +204,11 @@ class SportsEvent(BaseModel):
 
 class SportsDoc(BaseModel):
     """
-    National scope, same treatment as AttentionDoc: ESPN's scoreboard
-    is fetched once per run (not once per state) and the same
-    SportsDoc is attached to every state's StitchedDoc. No
-    team-to-state mapping is done here -- see the SportsEvent
-    docstring.
+    National scoreboard, fetched once per run and stored in the separate
+    national snapshot. No team-to-state mapping is done here.
     """
     scope: str = "national"
-    league: str = "college-football"
+    league_status: dict[str, str] = Field(default_factory=dict)
     date: date
     meta: SourceMeta
     events: list[SportsEvent] = Field(default_factory=list)
@@ -253,22 +254,19 @@ class YoutubeDoc(BaseModel):
 
 
 class StitchedSignals(BaseModel):
-    """The joined payload inside a StitchedDoc."""
+    """State-level sources only. National sources are stored separately."""
     weather: Optional[WeatherDoc] = None
     news: Optional[NewsDoc] = None
     trends: Optional[TrendsDoc] = None
-    attention: Optional[AttentionDoc] = None
     calendar: Optional[CalendarDoc] = None
     social: Optional[SocialDoc] = None
-    sports: Optional[SportsDoc] = None
     events: Optional[EventsDoc] = None
-    youtube: Optional[YoutubeDoc] = None
 
 
 class StitchedDoc(BaseModel):
     """
-    One per (state_code, date). This is the document a ranker or
-    generator would actually query against.
+    One state snapshot per (state_code, date). National context is selected
+    separately when preparing a query or training example.
     """
     state_code: str
     state_name: str
