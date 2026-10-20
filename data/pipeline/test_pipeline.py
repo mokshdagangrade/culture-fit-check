@@ -231,6 +231,25 @@ class DateQualityTests(unittest.TestCase):
         self.assertTrue(event.is_within_window)
         self.assertTrue(event.is_available_at_reference)
 
+    def test_confirmed_repeats_require_same_state_day_url_and_title(self):
+        rows = [
+            ('AL', '2026-10-20', 'example.com/story', 'Story'),
+            ('AL', '2026-10-20', 'example.com/story', ' STORY '),
+            ('AK', '2026-10-20', 'example.com/story', 'Story'),
+            ('AL', '2026-10-21', 'example.com/story', 'Story'),
+            ('AL', '2026-10-20', 'example.com/other', 'Story'),
+            ('AL', '2026-10-20', 'example.com/story', 'Updated story'),
+            ('AL', '2026-10-20', None, 'Story'),
+            ('AL', '2026-10-20', None, 'Story'),
+            ('AL', '2026-10-20', 'example.com/story', None),
+            ('AL', '2026-10-20', 'example.com/story', None),
+        ]
+        frame = pd.DataFrame(rows, columns=['state_code', 'date', 'url_key', 'title'])
+        repeated = self.data_cleaning['confirmed_repeat'](frame)
+        self.assertEqual(frame.index[repeated].tolist(), [1])
+        kept = frame.loc[~repeated]
+        self.assertFalse(self.data_cleaning['confirmed_repeat'](kept).any())
+
     def test_observance_note_survives_tables_and_candidate_context(self):
         holiday = {"name": "Celebration", "date": "2026-10-20", "type": "Local holiday",
                    "state_specific": True, "is_national": False, "observance_note": "partly"}

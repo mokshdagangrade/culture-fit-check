@@ -125,8 +125,9 @@ Converted tables are saved to `pipeline/out/tables/date=YYYY-MM-DD/`; cleaned
 tables and `signal_candidate` go to `pipeline/out/clean/date=YYYY-MM-DD/`.
 National rows have null state codes. Each folder includes `quality_report.json`.
 
-Source rows are retained; textless candidates are excluded. Duplicates, noise,
-age and availability are flagged. Missing reference timestamps block saving;
+Raw rows are retained. Cleaning removes news and Reddit repeats only when state,
+collection date, cleaned URL and normalized title all match; the first copy stays.
+Textless candidates are excluded. Other duplicates, noise, age and availability are flagged. Missing reference timestamps block saving;
 unknown publication dates remain unknown, and upcoming events are allowed.
 
 Larger age windows cannot recover uncollected history. Ticketmaster reports when
