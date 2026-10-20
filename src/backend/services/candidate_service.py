@@ -24,6 +24,7 @@ fill every slot.
 """
 
 import logging
+import math
 from datetime import date, datetime, timedelta, timezone
 
 from pymongo.errors import PyMongoError
@@ -56,8 +57,12 @@ def _fields(doc: dict) -> dict:
     return {
         "signal_id": doc.get("signal_id"),
         "source": doc.get("source"),
-        "text": doc.get("text"),
-        "context": doc.get("context"),
+        "text": str(doc.get("text") or "")[:500],
+        "context": str(doc.get("context") or "")[:500],
+        "geo_scope": doc.get("geo_scope"),
+        "geo_confidence": doc.get("geo_confidence"),
+        "date": doc.get("date"),
+        "event_date": doc.get("event_date"),
         "is_national": bool(doc.get("is_national")),
     }
 
@@ -99,8 +104,20 @@ def get_candidate_pool(state: str, today: date | None = None) -> dict:
     as_of = docs[0]["date"]
     docs = [d for d in docs if d.get("date") == as_of]
 
+    # Prefer current/upcoming holidays before the calendar quota fills.
+    def calendar_priority(doc):
+        if doc.get("source") != "calendar":
+            return (1, 0, 0)
+        days = doc.get("days_from_date")
+        if not isinstance(days, (int, float)) or not math.isfinite(days):
+            return (0, 2, 0)
+        return (0, int(days < 0), abs(days))
+
+    docs.sort(key=calendar_priority)
     pool, refused, used = [], [], {}
     for doc in docs:
+        if doc.get("geo_confidence") == "unreliable":
+            continue
         reason = unsafe_reason({"keyword": doc.get("text") or "",
                                 "news_headline": doc.get("context") or ""})
         if reason:
@@ -123,7 +140,8 @@ def get_candidate_pool(state: str, today: date | None = None) -> dict:
         "stale_days": (today - date.fromisoformat(as_of)).days,
         "pool": pool,
         "refused": refused,
-        "counts": used,
+        "counts": {source: sum(p["source"] == source for p in pool)
+                   for source in sorted({p["source"] for p in pool})},
     }
 
 

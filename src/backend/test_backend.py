@@ -22,6 +22,16 @@ def rows(*specs):
 
 
 class CandidatePoolTests(unittest.TestCase):
+    def test_upcoming_holiday_survives_quota_of_old_holidays(self):
+        docs = rows(*[("calendar", f"old holiday {i}") for i in range(8)],
+                    ("calendar", "Halloween"))
+        for doc in docs[:-1]:
+            doc['days_from_date'] = -10
+        docs[-1].update(days_from_date=11, event_date='2026-10-31')
+        result = self.pool_for(docs)
+        self.assertEqual(result['pool'][0]['text'], 'Halloween')
+        self.assertEqual(result['pool'][0]['event_date'], '2026-10-31')
+
     def pool_for(self, docs, state="Texas", today=date(2026, 10, 20)):
         cursor = MagicMock()
         cursor.sort.return_value = docs
@@ -90,6 +100,18 @@ class RankerTests(unittest.TestCase):
     def test_empty_selection_is_a_valid_answer(self):
         self.assertEqual(parse_ranking("[]", self.pool), [])
 
+    def test_invalid_scores_and_duplicate_ids_are_rejected(self):
+        raw = '[{"id":0,"score":99},{"id":1,"score":NaN},{"id":0,"score":8},{"id":0,"score":9}]'
+        selected = parse_ranking(raw, self.pool)
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(selected[0]['score'], 8)
+
+    def test_ranker_failure_abstains_instead_of_using_unranked_items(self):
+        from services import ranker_service
+        with patch.object(ranker_service.llm, 'is_configured', return_value=False):
+            self.assertEqual(ranker_service.rank_signals('Launch', {}, 'Texas', self.pool),
+                             ([], 'fallback:no-llm'))
+
     def test_unparseable_reply_raises_for_the_caller_to_fall_back(self):
         with self.assertRaises(ValueError):
             parse_ranking("I could not decide.", self.pool)
@@ -100,6 +122,21 @@ class RankerTests(unittest.TestCase):
 
 
 class SignalRenderingTests(unittest.TestCase):
+    def test_holiday_brief_names_selected_occasion_without_inferring_launch_date(self):
+        selected = [{'source': 'calendar', 'text': 'Halloween', 'event_date': '2026-10-31'}]
+        _, brief = build_context_prompt('DIY sneakers coming for the holidays', signals=selected)
+        self.assertIn('Explicitly name this occasion', brief)
+        self.assertIn("not evidence of the product's launch date", brief)
+        _, brief = build_context_prompt('DIY sneakers coming for the holidays', signals=[])
+        self.assertNotIn('HOLIDAY CAMPAIGN:', brief)
+        _, brief = build_context_prompt('A new sneaker launch', signals=selected)
+        self.assertNotIn('HOLIDAY CAMPAIGN:', brief)
+
+    def test_ranker_abstention_does_not_restore_unranked_trends(self):
+        _, brief = build_context_prompt('Launch', signals=[], trends=[{'keyword': 'unselected hook'}])
+        self.assertNotIn('unselected hook', brief)
+        self.assertIn('No local signals available', brief)
+
     def test_renders_source_context_and_reason(self):
         out = format_signals([{"source": "trends", "text": "first frost austin",
                                "context": "cold snap", "why": "seasonal fit"}])
