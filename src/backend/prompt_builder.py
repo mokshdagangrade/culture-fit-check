@@ -62,13 +62,14 @@ def build_context_prompt(
     trends = trends or []
     location = location or {}
     weather = weather or {}
+    ranked_selection = signals is not None
     signals = signals or []
 
     dated = f", {trends_as_of}" if trends_as_of else ""
-    heading = "LOCAL SIGNALS" if signals else "LOCAL TREND SIGNALS"
-    body = format_signals(signals) if signals else format_trends(trends)
+    heading = "LOCAL SIGNALS" if ranked_selection else "LOCAL TREND SIGNALS"
+    body = format_signals(signals) if ranked_selection else format_trends(trends)
     kind = ("local signals from search, news, events, community posts and the "
-            "calendar" if signals else "search trends")
+            "calendar" if ranked_selection else "search trends")
     signal_section = f"""## {heading} -- {describe_location(location)}{dated}
 
 {body}
@@ -162,6 +163,25 @@ Description:
 {user_message}
 """
 
+    # A selected calendar hook should be visible for a holiday-themed campaign.
+    # Do not infer launch timing or use unranked holidays after ranker failure.
+    import re
+    if re.search(r"\bholidays?\b", user_message, re.IGNORECASE):
+        holidays = [signal for signal in signals
+                    if signal.get("source") == "calendar" and signal.get("text")
+                    and signal.get("event_date")]
+        if holidays:
+            holiday = holidays[0]
+            prompt += (
+                "\n\nHOLIDAY CAMPAIGN: The brief requests a holiday theme. "
+                f"The highest-ranked selected calendar hook is {holiday['text']} "
+                f"on {holiday['event_date']}. Explicitly name this occasion in the "
+                "finished copy, rather than only saying 'the holidays'. Keep it a "
+                "creative theme; this calendar date is not evidence of the product's "
+                "launch date, availability, features, or a promotion. Respect an explicit "
+                "user instruction to exclude this occasion or keep holiday wording generic."
+            )
+
     return system_prompt.strip(), prompt.strip()
 def format_signals(signals: list) -> str:
     """
@@ -176,6 +196,10 @@ def format_signals(signals: list) -> str:
     for i, signal in enumerate(signals, 1):
         scope = " [national, not local]" if signal.get("is_national") else ""
         lines.append(f"{i}. ({signal.get('source', 'signal')}{scope}) {signal.get('text', '')}")
+        if signal.get("event_date"):
+            lines.append(f"   event date: {signal['event_date']}")
+        if signal.get("geo_confidence") == "guessed":
+            lines.append("   Geography is guessed; this is anecdotal community context.")
         if signal.get("context"):
             lines.append(f"   context: {signal['context']}")
         if signal.get("why"):

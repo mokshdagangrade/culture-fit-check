@@ -28,4 +28,7 @@ node_modules/
 Thumbs.db
 
 data/pipeline/out/
+training/out/
+training/checkpoints/
 data/pipeline/.env.example
+*.parquet

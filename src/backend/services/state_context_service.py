@@ -1,4 +1,8 @@
-"""Read recent, bounded state API responses from the existing data pipeline."""
+"""Read recent weather snapshots; other sources use cleaned candidate retrieval.
+
+Keeping non-weather payloads out of this reader prevents unranked raw sources
+from bypassing candidate_service and ranker_service during draft generation.
+"""
 from datetime import datetime, timedelta, timezone
 import logging
 from pymongo.errors import PyMongoError
