@@ -55,12 +55,31 @@ def build_context_prompt(
     location: dict | None = None,
     weather: dict | None = None,
     trends_as_of: str | None = None,
+    signals: list | None = None,
 ) -> tuple[str, str]:
 
     company = company or {}
     trends = trends or []
     location = location or {}
     weather = weather or {}
+    signals = signals or []
+
+    dated = f", {trends_as_of}" if trends_as_of else ""
+    heading = "LOCAL SIGNALS" if signals else "LOCAL TREND SIGNALS"
+    body = format_signals(signals) if signals else format_trends(trends)
+    kind = ("local signals from search, news, events, community posts and the "
+            "calendar" if signals else "search trends")
+    signal_section = f"""## {heading} -- {describe_location(location)}{dated}
+
+{body}
+
+These are {kind} for this location on this date, already filtered for sensitive
+topics and ranked for this brief. They are observations, not endorsements. Use
+at most one, and only where it genuinely fits the brand and the current brief.
+Do not claim local popularity, sponsorship, attendance or affiliation, and do
+not treat a headline as a verified fact about the brand's market. A signal
+marked [national, not local] describes the country, not this state. If none of
+them fit, write the copy without a local hook rather than forcing one."""
 
     system_prompt = """
 You are Wavelength, an AI marketing assistant.
@@ -136,19 +155,7 @@ Description:
 {weather.get("description", "Not provided")}
 
 
-## CURRENT TRENDS
-
-## LOCAL TREND SIGNALS -- {describe_location(location)}{f", {trends_as_of}" if trends_as_of else ""}
-
-{format_trends(trends)}
-
-These are search trends for this location on this date, already filtered for
-sensitive topics. They are what people searched, not endorsements. Use at most
-one, and only where it genuinely fits the brand and the current brief. Do not
-claim local popularity, sponsorship, attendance or affiliation, and do not
-treat a headline as a verified fact about the brand's market. If none of them
-fit, write the copy without a trend hook rather than forcing one.
-
+{signal_section}
 
 ## USER REQUEST
 
@@ -156,3 +163,21 @@ fit, write the copy without a trend hook rather than forcing one.
 """
 
     return system_prompt.strip(), prompt.strip()
+def format_signals(signals: list) -> str:
+    """
+    Renders ranked signals from candidate_service / ranker_service:
+    {source, text, context, score, why}. Used in place of format_trends when
+    the candidate pool is available, since it already includes trends.
+    """
+    if not signals:
+        return "No local signals available for this location today."
+
+    lines = []
+    for i, signal in enumerate(signals, 1):
+        scope = " [national, not local]" if signal.get("is_national") else ""
+        lines.append(f"{i}. ({signal.get('source', 'signal')}{scope}) {signal.get('text', '')}")
+        if signal.get("context"):
+            lines.append(f"   context: {signal['context']}")
+        if signal.get("why"):
+            lines.append(f"   why it may fit: {signal['why']}")
+    return "\n".join(lines)

@@ -94,7 +94,10 @@ class GenerationTests(unittest.TestCase):
         with patch.object(main, 'get_state_context', return_value=context), patch.object(main.llm, 'call_llm', return_value='Rain-ready.') as call:
             result = main.generate_for_state(self.user, 'caption', 'Launch', 'California', [])
         self.assertIn('rain', call.call_args.args[0])
-        self.assertEqual(result.grounding_context, context)
+        self.assertEqual(result.grounding_context['weather'], context['weather'])
+        # every run records what was offered, refused and selected
+        self.assertEqual(result.grounding_context['trend_selection'], {'used': [], 'dropped': []})
+        self.assertEqual(result.grounding_context['signal_selection']['method'], 'empty-pool')
 
     def test_hf_unsupported_model_error(self):
         fake = MagicMock()
