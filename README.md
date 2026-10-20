@@ -59,3 +59,11 @@ Set `HF_TOKEN` in `src/backend/.env` to a Hugging Face token with **Make calls t
 
 
 State generation now includes every supported nonempty successful source type: weather, news, trends, calendar, events, confirmed social posts, and national sports, attention, and YouTube. National scope and guessed Reddit geography remain explicit in the prompt and source details. Payloads include up to ten items per list with text capped at 500 characters; source URLs are omitted. Missing, failed, unconfirmed, unreliable, or mismatched sources are skipped.
+
+
+### Provider fallback order
+
+`LLM_PROVIDER_CHAIN=true` tries Gemini → Groq → Hugging Face. Set `GEMINI_API_KEY`, `GROQ_API_KEY` and `HF_TOKEN`; missing keys are skipped. Groq also accepts the existing `LLM_API_KEY` as a legacy fallback. Models are configured separately with `GEMINI_MODEL`, `GROQ_MODEL`, and `HF_MODEL`. Any failed request or unusable output advances to the next provider; if all fail, the UI reports each provider's sanitized failure. Each state starts with the configured priority order. Set `LLM_PROVIDER_CHAIN=false` to use the legacy `LLM_BASE_URL` / `LLM_MODEL` setup. Restart after editing `.env`.
+
+
+Current generation context is restricted to weather only. Other pipeline signals remain stored in MongoDB but are not supplied to the model.
