@@ -103,21 +103,17 @@ class GenerationTests(unittest.TestCase):
             with self.assertRaisesRegex(llm.LLMError, 'enabled Hugging Face providers'):
                 llm.call_llm('launch')
 
-    def test_social_and_national_context_are_labeled(self):
+    def test_only_weather_is_supplied(self):
         from datetime import datetime, timezone
         collection = MagicMock()
         collection.find_one.return_value = {'date': '2026-10-03', 'signals': {
-            'social': {'state_code': 'AL', 'geo': {'scope': 'state', 'confidence': 'guessed'}, 'meta': {'status': 'ok'}, 'subreddit_confirmed': True, 'posts': [{'title': 'Beach activities', 'url': 'private-url'}]},
+            'weather': {'state_code': 'AL', 'meta': {'status': 'ok'}, 'condition': 'overcast'},
+            'social': {'state_code': 'AL', 'geo': {'scope': 'state', 'confidence': 'guessed'}, 'meta': {'status': 'ok'}, 'subreddit_confirmed': True, 'posts': [{'title': 'Beach activities'}]},
             'sports': {'scope': 'national', 'meta': {'status': 'ok'}, 'events': [{'home_team': 'A'}]},
-            'attention': {'scope': 'national', 'meta': {'status': 'empty'}, 'top_articles': []}}}
+            'trends': {'state_code': 'AL', 'meta': {'status': 'ok'}, 'trends': [{'keyword': 'Sneakers'}]}}}
         with patch.dict(main.get_state_context.__globals__, {'state_signals_collection': collection}):
             context = main.get_state_context('Alabama', datetime(2026, 10, 3, tzinfo=timezone.utc))
-            self.assertEqual(set(context), {'social', 'sports'})
-            self.assertEqual(context['social']['confidence'], 'guessed')
-            self.assertEqual(context['sports']['scope'], 'national')
-            self.assertNotIn('url', context['social']['data']['posts'][0])
-            collection.find_one.return_value['signals']['social']['subreddit_confirmed'] = False
-            self.assertNotIn('social', main.get_state_context('Alabama'))
+        self.assertEqual(set(context), {'weather'})
 
     def test_email_requires_observed_weather_hook(self):
         context = {'weather': {'data': {'condition': 'overcast', 'temperature_c': 27}, 'date': '2026-10-03'}}
@@ -144,6 +140,18 @@ class GenerationTests(unittest.TestCase):
         self.assertIn('A new launch must announce that product', call.call_args.kwargs['system'])
         launch = {'prompt': 'new launch about diy peel off sneakers', 'content_type': 'email', 'results': []}
         self.assertEqual(main.campaign_history('make it shorter', old + [launch]), [launch])
+
+    def test_provider_chain_order_and_failures(self):
+        config = {'LLM_PROVIDER_CHAIN': 'true', 'GEMINI_API_KEY': 'gem', 'GROQ_API_KEY': 'groq', 'HF_TOKEN': 'hf'}
+        with patch.dict(llm.os.environ, config), patch.object(llm, '_call_single', side_effect=[llm.LLMError('quota'), llm.LLMError('limit'), 'HF draft']) as call:
+            self.assertEqual(llm.call_llm('launch'), 'HF draft')
+            self.assertEqual([c.kwargs['provider'][0] for c in call.call_args_list], ['Gemini', 'Groq', 'Hugging Face'])
+        with patch.dict(llm.os.environ, config), patch.object(llm, '_call_single', return_value='Gemini draft') as call:
+            self.assertEqual(llm.call_llm('launch'), 'Gemini draft')
+            self.assertEqual(call.call_count, 1)
+        with patch.dict(llm.os.environ, config), patch.object(llm, '_call_single', side_effect=llm.LLMError('quota')):
+            with self.assertRaisesRegex(llm.LLMError, 'All configured AI providers failed'):
+                llm.call_llm('launch')
 
     def test_chat_requires_auth(self):
         route = next(r for r in main.app.routes if r.path == '/chat')

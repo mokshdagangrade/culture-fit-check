@@ -49,6 +49,8 @@ def get_state_context(state, now=None):
         return {}
     context = {}
     for source, fields in FIELDS.items():
+        if source != "weather":
+            continue
         signal = (doc.get("signals") or {}).get(source)
         if not isinstance(signal, dict) or signal.get("meta", {}).get("status") != "ok":
             continue

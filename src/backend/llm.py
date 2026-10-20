@@ -25,11 +25,53 @@ def api_key():
     return os.getenv("LLM_API_KEY", "")
 
 
+def providers():
+    """Configured providers in the requested priority order; missing keys are skipped."""
+    candidates = [
+        ("Gemini", os.getenv("GEMINI_API_KEY"), "https://generativelanguage.googleapis.com/v1beta/openai/", os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")),
+        ("Groq", os.getenv("GROQ_API_KEY") or os.getenv("LLM_API_KEY"), "https://api.groq.com/openai/v1", os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")),
+        ("Hugging Face", os.getenv("HF_TOKEN"), "https://router.huggingface.co/v1", os.getenv("HF_MODEL", "Qwen/Qwen3-4B-Instruct-2507")),
+    ]
+    return [item for item in candidates if item[1]]
+
+
+def chain_enabled():
+    return os.getenv("LLM_PROVIDER_CHAIN", "false").lower() == "true"
+
+
+@lru_cache(maxsize=6)
+def provider_client(name, key, url):
+    # Let fallback handle errors rather than retrying each exhausted provider.
+    return OpenAI(api_key=key, base_url=url, timeout=60.0, max_retries=0)
+
+
+def call_llm(prompt, system=None, temperature=0.8, max_tokens=512):
+    if not chain_enabled():
+        return _call_single(prompt, system, temperature, max_tokens)
+    configured = providers()
+    if not configured:
+        raise LLMError("Configure GEMINI_API_KEY, GROQ_API_KEY or HF_TOKEN in the backend .env.")
+    failures = []
+    for provider in configured:
+        name, key, url, model = provider
+        try:
+            text = _call_single(prompt, system, temperature, max_tokens, provider=provider)
+            logger.info("LLM generation completed: provider=%s model=%s", name, model)
+            return text
+        except LLMError as exc:
+            failures.append(f"{name}: {exc}")
+            logger.warning("LLM fallback: provider=%s failed; trying next configured provider", name)
+    raise LLMError("All configured AI providers failed. " + " | ".join(failures))
+
+
 def is_configured() -> bool:
-    return bool(api_key())
+    return bool(providers()) if chain_enabled() else bool(api_key())
 
 
 def model_name() -> str:
+    if chain_enabled():
+        configured = providers()
+        return configured[0][3] if configured else None
     return os.getenv("LLM_MODEL", DEFAULT_MODEL)
 
 
@@ -42,14 +84,15 @@ def _client() -> OpenAI:
     return OpenAI(api_key=api_key(), base_url=base_url(), timeout=90.0, max_retries=2)
 
 
-def call_llm(
+def _call_single(
     prompt: str,
     system: Optional[str] = None,
     temperature: float = 0.8,
     max_tokens: int = 512,
+    provider=None,
 ) -> str:
     """Send one prompt, get the text back. Raises LLMError on any failure."""
-    if not is_configured():
+    if provider is None and not is_configured():
         raise LLMError("Set HF_TOKEN for Hugging Face, or LLM_API_KEY for other hosted providers, in the backend .env.")
 
     messages = []
@@ -57,15 +100,18 @@ def call_llm(
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
 
+    active_model = provider[3] if provider else model_name()
+    active_url = provider[2] if provider else base_url()
     options = {}
-    if urlparse(base_url()).hostname == "generativelanguage.googleapis.com":
+    if urlparse(active_url).hostname == "generativelanguage.googleapis.com":
         # Gemini spends the shared output budget on thinking as well as copy.
         options["reasoning_effort"] = "low"
         max_tokens = max(max_tokens, 8192)
 
     try:
-        response = _client().chat.completions.create(
-            model=model_name(), messages=messages,
+        client = provider_client(*provider[:3]) if provider else _client()
+        response = client.chat.completions.create(
+            model=active_model, messages=messages,
             temperature=temperature, max_tokens=max_tokens, **options,
         )
     except APIStatusError as exc:
