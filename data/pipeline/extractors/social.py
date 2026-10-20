@@ -1,3 +1,4 @@
+import time
 from datetime import date, datetime, timezone
 
 from http_client import polite_get
@@ -11,6 +12,11 @@ def fetch_subreddit_posts(state: dict, limit: int = 20, timeout: int = 15) -> So
     params = {"subreddit": subreddit_guess, "limit": limit, "sort": "desc"}
 
     resp = polite_get(BASE_URL, params=params, timeout=timeout)
+    if resp.status_code == 422 and "Timeout. Maybe slow down a bit" in resp.text:
+        time.sleep(2)
+        resp = polite_get(BASE_URL, params=params, timeout=timeout)
+    if resp.status_code == 422:
+        raise RuntimeError(f"Arctic Shift returned 422: {resp.text[:500]}")
 
     if resp.status_code == 404:
         return SocialDoc(
