@@ -37,6 +37,8 @@ app.add_middleware(
 from services.company_service import get_company_details
 from services.state_context_service import get_state_context
 from services.trend_service import select_trends
+from services.candidate_service import get_candidate_pool
+from services.ranker_service import rank_signals
 from prompt_builder import build_context_prompt
 SYSTEM_PROMPT = (
     "You are a regional marketing copywriter. You write short-form copy that "
@@ -167,15 +169,17 @@ def generate_for_state(user, content_type, prompt, region, previous):
     weather_signal = context.get("weather", {})
     weather_data = weather_signal.get("data", {})
     trend_signal = context.get("trends", {})
-    # Trends are filtered and ranked here rather than dumped raw: see
-    # services/trend_service.py for why, and for what gets refused.
     usable_trends, dropped_trends = select_trends(trend_signal.get("data", {}).get("trends"))
+    candidates = get_candidate_pool(region)
+    selected, rank_method = rank_signals(prompt, company, region, candidates["pool"])
+
     system, brief = build_context_prompt(
         user_message=prompt, company=company,
         weather={"condition": weather_data.get("condition"), "temperature": weather_data.get("temperature_c")},
         location={"state": region, "country": "India" if region in INDIA_STATES else "US"},
         trends=usable_trends,
-        trends_as_of=trend_signal.get("date"),
+        trends_as_of=candidates["as_of"] or trend_signal.get("date"),
+        signals=selected,
     )
     formats = {
         "caption": "Write a complete social caption with a call to action.",
@@ -217,7 +221,22 @@ def generate_for_state(user, content_type, prompt, region, previous):
     )
     brief += "\n\nCURRENT USER BRIEF — fulfill this request: " + prompt
     text = llm.call_llm(brief, system=system, max_tokens=2048 if content_type in ("email", "newsletter") else 1024)
-    grounding = {**context, "trend_selection": {"used": usable_trends, "dropped": dropped_trends}}
+    grounding = {
+        **context,
+        "trend_selection": {"used": usable_trends, "dropped": dropped_trends},
+        # The retrieval audit trail. `selected` with its scores is the label
+        # a human review turns into ranker training data; `refused` and
+        # `stale_days` are what make block rate and freshness measurable.
+        "signal_selection": {
+            "as_of": candidates["as_of"],
+            "stale_days": candidates["stale_days"],
+            "pool_size": len(candidates["pool"]),
+            "pool_by_source": candidates["counts"],
+            "selected": selected,
+            "refused": candidates["refused"],
+            "method": rank_method,
+        },
+    }
     return TaglineCandidate(state=region, text=text, grounding_context=grounding)
 
 
