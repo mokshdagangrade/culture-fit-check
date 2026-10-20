@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import os
 from datetime import date, datetime, timezone
 
 from http_client import polite_get
 from schemas import EventsDoc, EventItem, SourceMeta, GeoTag
+from signal_windows import SignalWindow
 
 BASE_URL = "https://app.ticketmaster.com/discovery/v2/events.json"
 
@@ -11,7 +14,8 @@ class MissingAPIKey(Exception):
     pass
 
 
-def fetch_events(state: dict, size: int = 50, timeout: int = 10) -> EventsDoc:
+def fetch_events(state: dict, size: int = 50, timeout: int = 10, window: SignalWindow | None = None,
+                 reference_date: date | None = None) -> EventsDoc:
     api_key = os.environ.get("TICKETMASTER_API_KEY")
     if not api_key:
         raise MissingAPIKey(
@@ -26,9 +30,15 @@ def fetch_events(state: dict, size: int = 50, timeout: int = 10) -> EventsDoc:
         "size": size,
         "sort": "date,asc",
     }
+    reference_date = reference_date or date.today()
+    if window is not None:
+        start, end = window.bounds(reference_date)
+        params["localStartDateTime"] = f"{start.isoformat()}T00:00:00,{end.isoformat()}T23:59:59"
     resp = polite_get(BASE_URL, params=params, timeout=timeout)
     resp.raise_for_status()
     body = resp.json()
+    page = body.get("page", {})
+    truncated = page.get("totalElements", 0) > size
 
     raw_events = body.get("_embedded", {}).get("events", [])
     events = []
@@ -56,10 +66,11 @@ def fetch_events(state: dict, size: int = 50, timeout: int = 10) -> EventsDoc:
 
     return EventsDoc(
         state_code=state["code"],
-        date=date.today(),
+        date=reference_date,
         meta=SourceMeta(
             source="ticketmaster", url=safe_url, fetched_at=datetime.now(timezone.utc),
             status="empty" if not events else "ok",
+            error="Result limit reached; more events exist in the requested window" if truncated else None,
         ),
         geo=GeoTag(scope="state", state_code=state["code"], confidence="exact"),
         events=events,

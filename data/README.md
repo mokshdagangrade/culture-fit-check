@@ -1,10 +1,10 @@
 # data/
 
-Datasets and APIs behind Wavelength's regional signal pipeline (`pipeline/`), and the schema they produce. For setup and how to run it, see `pipeline/README.md`.
+Datasets and APIs behind Wavelength's regional signal pipeline (`pipeline/`), and the schema they produce. Setup and usage are below.
 
 ## Scope
 
-US, all 50 states, state-level where the source allows it. Every document is keyed by `state_code` and `date`.
+US, all 50 states, state-level where the source allows it. State documents use `state_code` and `date`; national documents use `country_code` and `date`.
 
 ## Geography
 
@@ -24,7 +24,7 @@ Context falls back state → Census division → Census region → country when 
 | Events | Ticketmaster Discovery | [developer.ticketmaster.com](https://developer.ticketmaster.com/) | State (venue-reported) | Yes (free tier) |
 | YouTube | YouTube Data API v3 — `mostPopular` | [developers.google.com/youtube](https://developers.google.com/youtube/v3) | National only | Yes (free tier) |
 
-News was originally GDELT DOC 2.0 — replaced after persistent 429 rate-limiting; may revisit if NewsData.io doesn't hold up. Attention, Sports, and YouTube are fetched once per run (not once per state) and the same document is attached to every state — see "Combined schema" below.
+News was originally GDELT DOC 2.0 — replaced after persistent 429 rate-limiting; may revisit if NewsData.io doesn't hold up. Attention, Sports, and YouTube are fetched once per run (not once per state) and stored once in a separate national snapshot — see "Combined schema" below.
 
 ## Per-source schema
 
@@ -43,7 +43,7 @@ Every raw document also carries a `geo` block: `scope` (`national`/`region`/`div
 
 | Calendar | Social | Attention (national) | Sports (national) |
 |---|---|---|---|
-| `state_code`, `date` | `state_code`, `date` | `country_code`, `project` | `league` |
+| `state_code`, `date` | `state_code`, `date` | `country_code`, `project` | `events[]`: `league`, `event_id` |
 | `holidays_today[]` | `subreddit` | `top_articles[]` | `events[]`: |
 | `holidays_this_month[]`: | `subreddit_confirmed` | | &nbsp;&nbsp;`home_team`, `away_team` |
 | &nbsp;&nbsp;`name`, `date`, `type` | `posts[]`: | | &nbsp;&nbsp;`venue_name`, `venue_city`, `venue_state` |
@@ -70,23 +70,72 @@ Notes on trust:
 
 ## Combined schema
 
-Two Mongo-shaped layers:
+`pipeline/stitch.py` combines the six state sources. National sources and national
+holidays stay separate until query or training time:
 
-**Raw layer** — one collection per source above, one document per (state, source, day), exactly what the API returned. Append-only audit trail.
+```text
+state_signals_daily:
+  state_code, state_name, census_region, census_division,
+  country_code, date, stitched_at, run_id,
+  sources_present, sources_missing, source_errors,
+  signals: {weather, news, trends, calendar, social, events}
 
-**Stitched layer** — `state_signals_daily`, one document per (state, day), joining that day's raw signals:
-
-```
-{
-state_code, state_name, census_region, census_division,
-date, stitched_at,
-sources_present: [...], # which signals actually came through
-sources_missing: [...], # which didn't (see meta.error upstream, printed to console)
-signals: {
-weather, news, trends, calendar, social, events, # per-state
-attention, sports, youtube # national, same doc reused for every state
-}
-}
+national_signals_daily:
+  country_code, date, run_id, windows, source_errors,
+  signals: {attention, sports, youtube, calendar}
 ```
 
-This is the document a ranker or generator would query. `pipeline/run_extract.py` builds it; `pipeline/load_mongo.py` inserts it.
+`run_extract.py` saves both daily JSON snapshots under `pipeline/out/`;
+`load_mongo.py` optionally writes them to separate collections. Matching run IDs
+prevent mixing collection runs. Same-day reruns replace that day's files.
+
+## Setup and usage
+
+Run from the repository root. Add API credentials to `data/pipeline/.env`:
+`NEWSDATA_API_KEY`, `CALENDARIFIC_API_KEY`, `TICKETMASTER_API_KEY`,
+`YOUTUBE_API_KEY`, and `WIKIMEDIA_CONTACT`.
+
+```sh
+python3 -m pip install -r data/pipeline/requirements.txt -r data/pipeline/notebooks/requirements.txt
+python3 data/pipeline/run_extract.py --limit 1
+python3 -m unittest discover -s data/pipeline -p 'test*.py' -v
+```
+
+Remove `--limit 1` for all 50 states. Then run
+[json_to_tables.ipynb](pipeline/notebooks/json_to_tables.ipynb), followed by
+[data_cleaning.ipynb](pipeline/notebooks/data_cleaning.ipynb). Both default to the
+latest saved day; use `RUN_DATE` or `SIGNAL_RUN_DATE` to select another.
+
+## Age settings and calendar cache
+
+Edit [signal_windows.json](pipeline/signal_windows.json): each API has
+`lookback_days` and `lookahead_days`. Pass another complete file with
+`--windows /path/to/windows.json`, and use the same file through `WINDOWS_PATH`
+or `SIGNAL_WINDOWS_PATH` in cleaning. Age is measured against the saved reference
+time. Trends and YouTube freshness uses collection time.
+
+Calendarific fetches the US once per needed year and caches it for 30 days,
+conserving its 500-request monthly allowance. Use `--calendar-cache-days N` or
+`--refresh-calendar` to change refresh behaviour. State holiday `observance_note`
+preserves partial, optional and community-specific observance.
+
+## Tables and quality checks
+
+Converted tables are saved to `pipeline/out/tables/date=YYYY-MM-DD/`; cleaned
+tables and `signal_candidate` go to `pipeline/out/clean/date=YYYY-MM-DD/`.
+National rows have null state codes. Each folder includes `quality_report.json`.
+
+Source rows are retained; textless candidates are excluded. Duplicates, noise,
+age and availability are flagged. Missing reference timestamps block saving;
+unknown publication dates remain unknown, and upcoming events are allowed.
+
+Larger age windows cannot recover uncollected history. Ticketmaster reports when
+its 50-item cap leaves more listings unfetched. Sports collects NFL, NCAA football,
+NBA, WNBA, NCAA men’s/women’s basketball, MLB, NHL and MLS from the reference
+date through four days ahead by default (no past dates). Requests use one day
+at a time: 45 requests per run with the default nine leagues and five dates. Edit `LEAGUES` in
+`pipeline/extractors/sports.py` to change coverage; age windows remain configurable.
+Each game retains its league and event ID; league failures are reported without
+discarding other leagues. Empty results can reflect an off-season. Verify state-level Trends coverage.
+Collect across dates, and keep repeated content out of both training and
+evaluation sets. Product relevance selection and marketing responses remain later work.

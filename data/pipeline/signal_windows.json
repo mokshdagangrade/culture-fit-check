@@ -1,0 +1,11 @@
+{
+  "weather": {"lookback_days": 0, "lookahead_days": 0},
+  "news": {"lookback_days": 7, "lookahead_days": 0},
+  "social": {"lookback_days": 14, "lookahead_days": 0},
+  "trends": {"lookback_days": 2, "lookahead_days": 0},
+  "attention": {"lookback_days": 5, "lookahead_days": 0},
+  "youtube": {"lookback_days": 2, "lookahead_days": 0},
+  "sports": {"lookback_days": 0, "lookahead_days": 4},
+  "events": {"lookback_days": 21, "lookahead_days": 30},
+  "calendar": {"lookback_days": 21, "lookahead_days": 30}
+}
