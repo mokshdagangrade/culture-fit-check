@@ -106,7 +106,7 @@ class GenerationTests(unittest.TestCase):
             with self.assertRaisesRegex(llm.LLMError, 'enabled Hugging Face providers'):
                 llm.call_llm('launch')
 
-    def test_only_weather_is_supplied(self):
+    def test_snapshot_reader_supplies_weather_while_candidates_supply_other_sources(self):
         from datetime import datetime, timezone
         collection = MagicMock()
         collection.find_one.return_value = {'date': '2026-10-03', 'signals': {
@@ -118,16 +118,15 @@ class GenerationTests(unittest.TestCase):
             context = main.get_state_context('Alabama', datetime(2026, 10, 3, tzinfo=timezone.utc))
         self.assertEqual(set(context), {'weather'})
 
-    def test_email_requires_observed_weather_hook(self):
+    def test_weather_is_available_without_being_mandatory(self):
         context = {'weather': {'data': {'condition': 'overcast', 'temperature_c': 27}, 'date': '2026-10-03'}}
         with patch.object(main, 'get_state_context', return_value=context), patch.object(main.llm, 'call_llm', return_value='Cloudy skies, fresh steps.') as call:
             main.generate_for_state(self.user, 'email', 'Weekend sale', 'Alabama', [])
         prompt = call.call_args.args[0]
         system = call.call_args.kwargs['system']
         self.assertIn('overcast', prompt)
-        self.assertIn('WEATHER ADAPTATION REQUIREMENT', system)
-        self.assertIn('opening body paragraph', system)
-        self.assertIn('not a whole-state or upcoming-weekend forecast', system)
+        self.assertNotIn('WEATHER ADAPTATION REQUIREMENT', system)
+        self.assertIn('Use location and weather only when they improve the response', system)
         with patch.object(main, 'get_state_context', return_value={}), patch.object(main.llm, 'call_llm', return_value='Fresh steps.') as call:
             main.generate_for_state(self.user, 'email', 'Weekend sale', 'Alabama', [])
         self.assertNotIn('WEATHER ADAPTATION REQUIREMENT', call.call_args.kwargs['system'])
@@ -159,6 +158,38 @@ class GenerationTests(unittest.TestCase):
     def test_chat_requires_auth(self):
         route = next(r for r in main.app.routes if r.path == '/chat')
         self.assertTrue(any(d.call == main.get_current_user for d in route.dependant.dependencies))
+
+    def test_ranked_sources_reach_generator_without_unranked_context(self):
+        sources = ['trends', 'news', 'events', 'calendar', 'social', 'sports', 'attention', 'youtube']
+        for source in sources:
+            with self.subTest(source=source):
+                selected = {'signal_id': 'chosen', 'source': source, 'text': f'{source} selected hook',
+                            'is_national': source in ('sports', 'attention', 'youtube'), 'score': 9}
+                pool = {'as_of': '2026-10-20', 'stale_days': 0, 'pool': [selected],
+                        'counts': {source: 1}, 'refused': []}
+                context = {'news': {'data': {'articles': [{'title': 'UNRANKED SECRET'}]}}}
+                with patch.object(main, 'get_state_context', return_value=context), \
+                     patch.object(main, 'get_candidate_pool', return_value=pool), \
+                     patch.object(main, 'rank_signals', return_value=([selected], 'llm')), \
+                     patch.object(llm, 'call_generation', return_value='Draft') as call:
+                    result = main.generate_for_state(self.user, 'caption', 'Launch', 'Texas', [])
+                self.assertIn(selected['text'], call.call_args.args[0])
+                self.assertNotIn('UNRANKED SECRET', call.call_args.args[0])
+                self.assertEqual(result.grounding_context['signal_selection']['pool'], [selected])
+
+    def test_tuned_generation_endpoint_is_separate_from_ranker(self):
+        config = {'GENERATION_BASE_URL': 'http://localhost:8001/v1',
+                  'GENERATION_MODEL': 'wavelength-brand', 'GENERATION_API_KEY': 'test'}
+        with patch.dict(llm.os.environ, config), patch.object(llm, '_call_single', return_value='Draft') as call:
+            self.assertEqual(llm.call_generation('Launch'), 'Draft')
+            self.assertEqual(call.call_args.kwargs['provider'],
+                             ('Brand generator', 'test', 'http://localhost:8001/v1', 'wavelength-brand'))
+        with patch.dict(llm.os.environ, {'GENERATION_BASE_URL': '', 'GENERATION_MODEL': ''}), \
+             patch.object(llm, 'call_llm', return_value='Existing provider'):
+            self.assertEqual(llm.call_generation('Launch'), 'Existing provider')
+        with patch.dict(llm.os.environ, {'GENERATION_BASE_URL': 'http://localhost:8001/v1', 'GENERATION_MODEL': ''}):
+            with self.assertRaises(llm.LLMError):
+                llm.call_generation('Launch')
 
 if __name__ == '__main__':
     unittest.main()

@@ -17,13 +17,13 @@ score and reason; once a few hundred have been through human review, the
 same decision can be learned by something far cheaper and this call drops
 out of the request path.
 
-Failure here is never fatal: the pool's own order is a usable fallback, so
-a bad response degrades to "the top few by source quota" rather than an
-error page.
+Failure here is never fatal: abstain from selecting hooks when ranking is
+unavailable. Generation can still use the brand and brief.
 """
 
 import json
 import logging
+import math
 import re
 
 import llm
@@ -44,9 +44,12 @@ SCORE_FLOOR = 5
 def build_ranking_prompt(brief: str, company: dict, state: str, pool: list) -> str:
     lines = []
     for i, signal in enumerate(pool):
+        event_date = f" [event date: {signal['event_date']}]" if signal.get("event_date") else ""
         context = f" -- {signal['context']}" if signal.get("context") else ""
         scope = " [national]" if signal.get("is_national") else ""
-        lines.append(f"{i}. ({signal['source']}{scope}) {signal['text']}{context}")
+        if signal.get("geo_confidence") == "guessed":
+            scope += " [guessed geography, anecdotal]"
+        lines.append(f"{i}. ({signal['source']}{scope}) {signal['text']}{event_date}{context}")
 
     return f"""Brand: {company.get("name", "Unknown")} ({company.get("industry", "unknown industry")})
 Brand voice: {company.get("brand_voice", "not provided")}
@@ -80,8 +83,11 @@ def parse_ranking(raw: str, pool: list) -> list:
             raise ValueError("no JSON array in ranker reply")
         text = match.group(0)
 
-    scored = []
-    for row in json.loads(text):
+    parsed = json.loads(text)
+    if not isinstance(parsed, list):
+        raise ValueError("ranker response must be an array")
+    scored, seen = [], set()
+    for row in parsed:
         if not isinstance(row, dict):
             continue
         try:
@@ -89,8 +95,10 @@ def parse_ranking(raw: str, pool: list) -> list:
             score = float(row["score"])
         except (KeyError, TypeError, ValueError):
             continue
-        if not 0 <= index < len(pool) or score < SCORE_FLOOR:
+        if (not 0 <= index < len(pool) or not math.isfinite(score)
+                or not SCORE_FLOOR <= score <= 10 or index in seen):
             continue
+        seen.add(index)
         scored.append({**pool[index],
                        "score": score,
                        "why": str(row.get("why", ""))[:120]})
@@ -102,13 +110,13 @@ def parse_ranking(raw: str, pool: list) -> list:
 def rank_signals(brief: str, company: dict, state: str, pool: list) -> tuple[list, str]:
     """
     Returns (selected, method). `method` is "llm" when the model chose,
-    "fallback" when it could not and the pool order stood in, and names the
+    "fallback" when it could not and selection abstained, and names the
     failure in the audit trail either way.
     """
     if not pool:
         return [], "empty-pool"
     if not llm.is_configured():
-        return pool[:1], "fallback:no-llm"
+        return [], "fallback:no-llm"
 
     try:
         raw = llm.call_llm(
@@ -119,10 +127,10 @@ def rank_signals(brief: str, company: dict, state: str, pool: list) -> tuple[lis
         )
     except llm.LLMError as exc:
         logger.warning("Signal ranker call failed: %s", exc)
-        return pool[:1], "fallback:llm-error"
+        return [], "fallback:llm-error"
 
     try:
         return parse_ranking(raw, pool), "llm"
     except (ValueError, json.JSONDecodeError) as exc:
         logger.warning("Signal ranker returned unparseable JSON: %s", exc)
-        return pool[:1], "fallback:bad-json"
+        return [], "fallback:bad-json"

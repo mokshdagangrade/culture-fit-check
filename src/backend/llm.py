@@ -68,6 +68,18 @@ def is_configured() -> bool:
     return bool(providers()) if chain_enabled() else bool(api_key())
 
 
+def call_generation(prompt, system=None, temperature=0.8, max_tokens=512):
+    """Use the served brand adapter when configured; ranker calls stay separate."""
+    url = os.getenv("GENERATION_BASE_URL", "").strip()
+    model = os.getenv("GENERATION_MODEL", "").strip()
+    if bool(url) != bool(model):
+        raise LLMError("Set both GENERATION_BASE_URL and GENERATION_MODEL for the tuned generator.")
+    if not url:
+        return call_llm(prompt, system=system, temperature=temperature, max_tokens=max_tokens)
+    provider = ("Brand generator", os.getenv("GENERATION_API_KEY") or "local", url, model)
+    return _call_single(prompt, system, temperature, max_tokens, provider=provider)
+
+
 def model_name() -> str:
     if chain_enabled():
         configured = providers()

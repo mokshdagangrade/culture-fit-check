@@ -28,7 +28,7 @@ COLLECTION_NAME = "signal_candidates"
 # Only what the backend reads. Everything else stays in the parquet.
 KEEP = ["signal_id", "state_code", "date", "source", "position", "text", "context",
         "is_national", "is_dup", "is_noise", "is_within_window", "is_past",
-        "geo_scope", "geo_confidence"]
+        "geo_scope", "geo_confidence", "event_date", "days_from_date"]
 
 
 def find_parquet(date_str: str | None) -> Path:
@@ -50,10 +50,12 @@ def to_documents(df: pd.DataFrame) -> list[dict]:
     # Mongo and the backend compare dates as ISO strings, as the other
     # collections already do.
     frame["date"] = pd.to_datetime(frame["date"]).dt.date.astype(str)
+    if "event_date" in frame:
+        frame["event_date"] = pd.to_datetime(frame["event_date"]).dt.strftime("%Y-%m-%d")
     for flag in ("is_national", "is_dup", "is_noise", "is_within_window", "is_past"):
         if flag in frame:
             frame[flag] = frame[flag].fillna(False).astype(bool)
-    frame = frame.where(pd.notna(frame), None)
+    frame = frame.astype(object).where(pd.notna(frame), None)
     return frame.to_dict("records")
 
 
