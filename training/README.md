@@ -1,5 +1,38 @@
 # Marketing generator training data
 
+## Ranker review export and regression tests
+
+From the repository root, use an existing backend environment or create one:
+
+```sh
+python3 -m venv venv
+source venv/bin/activate
+python -m pip install -r src/backend/requirements.txt
+python -m unittest discover -s training -p 'test_*.py' -v
+PYTHONPATH=src/backend python -c 'import fastapi, unittest; unittest.main(module=None)' test_backend test_generation test_projects -v
+```
+
+These tests mock model and database calls; they need no API keys, MongoDB server,
+GPU, or training datasets. FastAPI is loaded before the backend tests because
+their existing `sys.modules` patches otherwise reload its exception class.
+The older `test_api.py` targets retired endpoints and is not part of this command.
+
+Save the authenticated `/history` JSON response, then export candidate pairs:
+
+```sh
+python training/export_ranker_reviews.py history.json --output training/out/ranker_reviews.jsonl
+```
+
+The exporter accepts a history response or an array of history entries. It leaves
+human relevance, suitability, notes and reviewer fields blank, and refuses to
+overwrite an existing file. Unassessed candidates have a null model score, not
+a negative label. Older history only supplies scores for selected signals and
+has no saved company snapshot. Only newly generated history contains the full
+assessment audit. Assessing every candidate uses more output tokens than selecting
+three; provider cost, latency and scoring quality still need live evaluation.
+
+## Generator training
+
 Run from the repository root in a separate training environment:
 
 ```sh

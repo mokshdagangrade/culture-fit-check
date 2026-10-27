@@ -243,7 +243,8 @@ def generate_for_state(user, content_type, prompt, region, previous):
     weather_data = weather_signal.get("data", {})
     usable_trends, dropped_trends = [], []
     candidates = get_candidate_pool(region)
-    selected, rank_method = rank_signals(prompt, company, region, candidates["pool"])
+    ranking_audit = {}
+    selected, rank_method = rank_signals(prompt, company, region, candidates["pool"], audit=ranking_audit)
 
     system, brief = build_context_prompt(
         user_message=prompt, company=company,
@@ -278,10 +279,10 @@ def generate_for_state(user, content_type, prompt, region, previous):
     grounding = {
         **context,
         "trend_selection": {"used": usable_trends, "dropped": dropped_trends},
-        # The retrieval audit trail. `selected` with its scores is the label
-        # a human review turns into ranker training data; `refused` and
-        # `stale_days` are what make block rate and freshness measurable.
+        # Machine judgments remain separate from human relevance labels.
+        # Preserve every assessment, not only the three generation hooks.
         "signal_selection": {
+            "ranking_audit": ranking_audit,
             "as_of": candidates["as_of"],
             "stale_days": candidates["stale_days"],
             "pool_size": len(candidates["pool"]),
