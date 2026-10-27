@@ -191,5 +191,30 @@ class GenerationTests(unittest.TestCase):
             with self.assertRaises(llm.LLMError):
                 llm.call_generation('Launch')
 
+    def test_all_ranker_assessments_are_saved_but_only_selected_hooks_reach_prompt(self):
+        user = {**self.user, 'description': 'Local roaster', 'products': 'Coffee',
+                'target_audience': 'Commuters'}
+        signals = [{'signal_id': f's{i}', 'source': 'events', 'text': text}
+                   for i, text in enumerate(['Coffee festival', 'Unrelated concert', 'Unassessed listing'])]
+        pool = {'as_of': '2026-10-20', 'stale_days': 0, 'pool': signals,
+                'counts': {'events': 3}, 'refused': []}
+        with patch.object(main, 'get_state_context', return_value={}), \
+             patch.object(main, 'get_candidate_pool', return_value=pool), \
+             patch.object(llm, 'is_configured', return_value=True), \
+             patch.object(llm, 'call_llm', return_value='[{"id":0,"score":9,"why":"fits"},{"id":1,"score":1,"why":"unrelated"}]') as ranking, \
+             patch.object(llm, 'call_generation', return_value='Fresh coffee.') as generation:
+            main.generate_taglines(GenerateRequest(prompt='Coffee launch', states=['Texas']), user)
+        saved = database.history_collection.insert_one.call_args.args[0]
+        selection = saved['results'][0]['grounding_context']['signal_selection']
+        audit = selection['ranking_audit']
+        self.assertEqual([row['score'] for row in audit['assessments']], [9, 1, None])
+        self.assertEqual(audit['assessments'][2]['assessment_status'], 'unassessed')
+        self.assertEqual(audit['company']['target_audience'], 'Commuters')
+        self.assertIn('Local roaster', ranking.call_args.args[0])
+        self.assertIn('Coffee festival', generation.call_args.args[0])
+        self.assertNotIn('Unrelated concert', generation.call_args.args[0])
+        self.assertNotIn('Unassessed listing', generation.call_args.args[0])
+        self.assertEqual([row['signal_id'] for row in selection['selected']], ['s0'])
+
 if __name__ == '__main__':
     unittest.main()

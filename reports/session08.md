@@ -57,6 +57,11 @@ north_star:
 - Fixed timestamp handling in the cleaning notebook and enabled holiday retrieval through Calendarific.
 - Prioritized current and upcoming holidays in candidate selection and strengthened holiday-specific generation instructions.
 
+- Extended the signal ranker with company description, products/services, and target audience so relevance judgments use more of the saved brand context.
+- Changed ranking to assess every shortlisted candidate and retain low scores; missing or invalid judgments remain unassessed. Generation still receives at most three signals scoring at least 5/10.
+- Saved candidate assessments and the ranking-time brief/company context in generation history. Added an offline JSONL exporter with blank human-review fields to prepare brief–signal pairs for future ranker training.
+- Added edge-case and regression tests for ranking, history persistence, and export; preserved existing selection behavior and documented reproducible test commands.
+
 ## User evidence
 
 - The project flow was requested to keep each campaign's conversation, feedback, approved selections, and files together, with a way to return to other projects.
@@ -69,6 +74,8 @@ north_star:
 - Manual testing with a JustRight DIY sneaker campaign exposed missing holiday data, ranker failures, and generic wording despite available context.
 - Confirmed that Halloween entered live retrieval pools after configuring calendar access and adjusting holiday prioritization.
 - The dataset and retrieval checks above were developer-led; user testing provided qualitative workflow feedback rather than evidence of improved localization recall.
+
+- Developer checks confirmed that low-scoring and unassessed candidates remain available for review while only selected signals enter the generation prompt; customer relevance improvement has not yet been measured.
 
 ## Metrics snapshot
 
@@ -90,6 +97,9 @@ north_star:
 - Latest refresh loaded 1,213 cleaned candidates, including calendar data.
 - 37 backend regression tests and two training-data tests pass.
 
+- Verified 62 automated tests: 43 backend tests and 19 training/export tests, using mocked model and database calls. Whitespace checks also passed.
+- Tested a full 40-candidate ranking response, score boundaries, malformed/truncated responses, request isolation, legacy history, and export overwrite protection.
+
 ## What did not work
 
 - A GitHub merge conflict affected the generation call in `src/backend/main.py`; resolved by combining project context with `main`'s generation provider function.
@@ -106,6 +116,9 @@ north_star:
 - Chronological ordering allowed past holidays to consume the calendar quota before upcoming holidays.
 - Some drafts remained generic even when Halloween was selected; prompt instructions were strengthened.
 - The frontend incorrectly counted retrieval audit objects as data sources; this display issue remains unresolved.
+
+- Existing test import patches reloaded FastAPI's exception class and caused three project tests to fail; preloading FastAPI allowed the backend suite to pass without changing project code.
+- Edge-case checks identified null history context and partial export-file risks; the exporter now handles null context and validates records before creating the output file.
 
 ## Challenges / blockers
 
@@ -135,6 +148,9 @@ north_star:
 - The general marketing dataset substantially outnumbers brand-specific examples, requiring evaluation of the training mixture.
 - Dataset provenance, unsupported product claims, and semantic overlap require further review.
 - News, events, YouTube, and Wikipedia require additional configuration; Trends requires its missing dependency.
+
+- Complete candidate scoring increases model output tokens; live cost, latency, and ranking quality remain unmeasured.
+- Current source quotas can exclude relevant signals before ranking; assessment logging does not resolve this retrieval gap, and human-reviewed relevance labels are still required.
 
 ## Next week's goal
 
@@ -169,11 +185,14 @@ north_star:
 - Fix the frontend source display to show actual selected signals and distinguish empty retrieval from ranking failure.
 - Test holiday grounding across formats and states.
 
+- Review exported brief–signal pairs, including low scores and uncertain geography, to build a human-labeled ranker evaluation set.
+- Compare live ranking quality and latency against the previous selection behavior, then improve candidate retrieval using campaign context.
+
 ## Individual contributions
 
 - Stuti Patel (Product): Integrated two Hugging Face marketing datasets into the existing pipeline, developing a configurable extraction workflow with schema validation, missing-value handling, and data quality checks. Updated `json_to_tables.ipynb` to support downstream Parquet integration. Investigated dataset filtering behavior, analyzed task distributions, and identified a restrictive filter that excluded all records.
-- Riya Puri (Engineering): Built a cleaner, reusable dataset for regional marketing research: separated state and national signals, standardized text/URLs/dates, and removed confirmed within-state news and Reddit repeats. Added configurable source age windows, quality reports, and incremental collection to expand coverage while preserving existing data and API quota.
-- Vyom Agarwal (Data&Eval): Implemented MongoDB loading for cleaned candidates, balanced regional retrieval, sensitivity filtering, and LLM-based relevance ranking. Connected selected signals to generation and added selection scores, reasons, and retrieval audits.
+- Riya Puri (Engineering): Extended ranking with product, audience, and company context while preserving the existing generation selection limit. Retained all assessed scores and saved brief/company context so ranking decisions can be reviewed and traced. Added a review exporter that preserves unknown scores and leaves human labels blank, supporting future ranker training. Added edge-case and persistence checks; verified 62 tests to protect existing behavior.
+- Vyom Agarwal (Data&Eval): Researched model-training methods for brand-conditioned marketing generation, including supervised fine-tuning and parameter-efficient approaches. Examined how zero-shot and one-shot prompting can provide comparison baselines before fine-tuning. 
 - Mokshda Gangrade (Users&Research): Prepared brand-conditioned training datasets and held-out splits, selected Qwen3-4B, and implemented QLoRA training and adapter integration configuration. Tested campaign generation, repaired cleaning and holiday-retrieval issues, and refined prompts to use relevant selected context. Added the project-based UI flow, optional reference uploads, project library, persisted workspace state, and project-scoped backend integration. Updated dashboard branding, resolved the generation-provider merge conflict, and collected user testing feedback about collaborator access and poster/image generation.
 
 ## Lean canvas changes (if any)
