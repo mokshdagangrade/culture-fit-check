@@ -1,6 +1,6 @@
 ---
 team: Wavelength
-session: 06
+session: 07
 date: 2026-10-20
 members:
  - name: Stuti Patel
@@ -16,28 +16,13 @@ members:
    github: mokshdagangrade
    hat: "Users&Research"
 
-
-
-
 north_star:
  metric: percentage of real localization edits independently flagged (recall vs. human expert adaptation)
  value: TBD
  previous: N/A
 ---
 
-
-
-
 ## Shipped this week
-
-
-
-
-
-
-
-
-
 
 - Integrated two Hugging Face datasets into the data pipeline: suehuynh/marketing-instruct-8k and manifesta/brandvoice-marketing-briefs.
 - Added check_hf_datasets.py to extract the datasets and export their records as JSON for downstream processing.
@@ -63,19 +48,6 @@ north_star:
 - Fixed timestamp handling in the cleaning notebook and enabled holiday retrieval through Calendarific.
 - Prioritized current and upcoming holidays in candidate selection and strengthened holiday-specific generation instructions.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## User evidence
 - The two datasets provide reference material for developing and evaluating localized marketing content, but their usefulness for identifying genuine cultural misalignment still needs to be validated against human judgments
 - Retrieval audits make it possible to inspect which signals were considered, rejected, and selected for each campaign; human relevance validation remains pending.
@@ -83,17 +55,11 @@ north_star:
 - Confirmed that Halloween entered live retrieval pools after configuring calendar access and adjusting holiday prioritization.
 - These are developer-led checks, not independent user validation or evidence of improved localization recall.
 
-
-
-
-
-
 ## Metrics snapshot
-
 
 - 50 states; 37,788 candidates, up from 11,095: 27,406 events, 8,856 cleaned Reddit posts, and 500 news articles.
 - 400 dated attention-history rows, 18 passing tests, 30 passing cleaning checks
-- Marketing-Instruct dataset: 8,441 rows of marketing copywriting examples. 
+- Marketing-Instruct dataset: 8,441 rows of marketing copywriting examples.
 - BrandVoice Marketing Briefs: 6,403 source rows covering 83 brands, plus 64 marketing-craft principles; the adapted dataset contains 6,366 rows.
 - Candidate retrieval caps the pool at 40 signals, balances eight source types, and selects up to three signals scoring at least 5/10.
 - Inspected local Parquet files containing 8,441 marketing instruction examples and 1,300 brand-brief records.
@@ -101,23 +67,9 @@ north_star:
 - Prepared 9,445 examples: 7,562 training, 942 validation, and 941 test.
 - Verified no exact normalized prompt, completion, or brand overlap across splits.
 - Latest refresh loaded 1,213 cleaned candidates, including calendar data.
-37 backend regression tests and two training-data tests pass.
-
-
-
-
-
-
-
-
-
-
-
-
-
+- 37 backend regression tests and two training-data tests pass.
 
 ## What did not work
-
 
 - Reddit backfills timed out in eight states; successfully collected posts were preserved.
 - Wider JSON windows alone could not retrieve historical Trends or free-tier news archives. News continuation was also blocked by unsaved pagination tokens.
@@ -131,15 +83,7 @@ north_star:
 - Some drafts remained generic even when Halloween was selected; prompt instructions were strengthened.
 - The frontend incorrectly counted retrieval audit objects as data sources; this display issue remains unresolved.
 
-
-
-
-
-
 ## Challenges / blockers
-
-
-
 
 - Tailoring evaluation context dynamically per country and region: establishing ground truth for fast-moving cultural, regional, and marketing trends is challenging due to how quickly local contexts shift.
 - Differentiating between purely stylistic marketing phrasing versus genuine cultural misalignment during automated evaluation.
@@ -163,17 +107,7 @@ north_star:
 - Dataset provenance, unsupported product claims, and semantic overlap require further review.
 - News, events, YouTube, and Wikipedia require additional configuration; Trends requires its missing dependency.
 
-
-
-
-
-
-
-
 ## Next week's goal
-
-
-
 
 - Evolve LLM calls to use structured JSON mode natively within `evaluator.py`.
 - Connect frontend UI directly to backend `/generate-caption` and `/evaluate-copy` endpoints for end-to-end user testing.
@@ -199,31 +133,13 @@ north_star:
 - Fix the frontend source display to show actual selected signals and distinguish empty retrieval from ranking failure.
 - Test holiday grounding across formats and states.
 
-
-
-
-
-
-
-
-
-
 ## Individual contributions
-
-
-
 
 - Stuti Patel (Product): Integrated two Hugging Face marketing datasets into the existing pipeline, developing a configurable extraction workflow with schema validation, missing-value handling, and data quality checks. Updated `json_to_tables.ipynb` to support downstream Parquet integration. Investigated dataset filtering behavior, analyzed task distributions, and identified a restrictive filter that excluded all records.
 - Riya Puri (Engineering): Built a cleaner, reusable dataset for regional marketing research: separated state and national signals, standardized text/URLs/dates, and removed confirmed within-state news and Reddit repeats. Added configurable source age windows, quality reports, and incremental collection to expand coverage while preserving existing data and API quota.
 - Vyom Agarwal (Data&Eval): Implemented MongoDB loading for cleaned candidates, balanced regional retrieval, sensitivity filtering, and LLM-based relevance ranking. Connected selected signals to generation and added selection scores, reasons, and retrieval audits.
 - Mokshda Gangrade (Users&Research): Prepared brand-conditioned training datasets and held-out splits, selected Qwen3-4B, and implemented QLoRA training and adapter integration configuration. Tested campaign generation, repaired cleaning and holiday-retrieval issues, and refined prompts to use relevant selected context.
 
-
-
-
 ## Lean canvas changes (if any)
-
-
-
 
 - None this week. Focus remained on establishing the baseline pipeline, API routes, and testing infrastructure.
