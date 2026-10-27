@@ -16,6 +16,7 @@ def validate_password_strength(pw: str) -> str:
         raise ValueError("Password must include at least one letter and one number")
     return pw
 class ChatRequest(BaseModel):
+    project_id: Optional[str] = None
     message: str = Field(min_length=1, max_length=4000)
 
 class ChatResponse(BaseModel):
@@ -82,6 +83,7 @@ class ProfileResponse(BaseModel):
 
 
 class GenerateRequest(BaseModel):
+    project_id: Optional[str] = None
     prompt: str = Field(min_length=1, max_length=4000)
     content_type: Literal["caption", "notification", "meme", "email", "newsletter"] = "caption"
     states: Optional[list[str]] = None  # defaults to profile states if omitted
@@ -105,12 +107,14 @@ class GenerateResponse(BaseModel):
 
 
 class FeedbackRequest(BaseModel):
+    project_id: Optional[str] = None
     state: str
     tagline_text: str
     thumbs: str  # "up" | "down"
 
 
 class EmailDraftRequest(BaseModel):
+    project_id: Optional[str] = None
     selected_taglines: dict[str, str]  # {state: tagline_text}
 
 
@@ -121,6 +125,7 @@ class EmailDraftResponse(BaseModel):
 
 
 class EmailSendRequest(BaseModel):
+    project_id: Optional[str] = None
     subject: str
     body: str
     approved: bool
@@ -132,3 +137,11 @@ def validate_states(value):
             raise ValueError("Unsupported state selected")
         return list(dict.fromkeys(value))
     return value
+
+
+class ProjectCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    files: list[dict] = Field(default_factory=list)
+
+class ProjectUpdate(BaseModel):
+    state: dict

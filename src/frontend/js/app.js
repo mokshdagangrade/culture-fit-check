@@ -12,6 +12,30 @@ const STEPS = [
   { emoji: '⚖️', label: 'Review',        title: 'Lining up for review',   text: 'Sets the drafts up for your approval. Your thumbs up and down shape the next run.' },
 ];
 
+const projectId = new URLSearchParams(location.search).get('project');
+if (!projectId) location.replace('projects.html');
+let project = null;
+let generated = [];
+let projectFiles = [];
+let saveTimer;
+let saveQueue = Promise.resolve();
+function queueSave() {
+  if (!project) return;
+  $('save-status').textContent = 'Saving…';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveWorkspace, 250);
+}
+function saveWorkspace() {
+  if (!project) return;
+  const state = {
+    currentCandidates, selectedTaglines, lastBrief, contentType, generated, files: projectFiles,
+    prompt: $('prompt').value, pendingFiles,
+    messages: Array.from($('messages').querySelectorAll('.msg')).filter(m => !m.querySelector('.typing')).map(m => ({role:m.classList.contains('user') ? 'user' : 'bot', text:m.querySelector('.bubble').innerText})),
+    email: {subject:$('email-subject').value, body:$('email-body').value, visible:!$('email-draft-box').hidden, approved:$('email-send-note').textContent !== '', note:$('email-send-note').textContent}
+  };
+  saveQueue = saveQueue.catch(() => {}).then(() => authFetch(`/projects/${encodeURIComponent(projectId)}`, {method:'PUT',body:JSON.stringify({state})})).then(() => {$('save-status').textContent='Saved';}).catch(err => {$('save-status').textContent='Save failed'; $('save-status').title=err.message;});
+  return saveQueue;
+}
 let profile = null;
 let currentCandidates = {};   // { state: [ {text, context, thumbs} ] }
 let selectedTaglines = {};    // { state: text }
@@ -26,10 +50,16 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').match
 
 document.addEventListener('DOMContentLoaded', async () => {
   requireAuth();
+  if (!projectId || !getToken()) return;
   wireAccountMenu();
 
   try {
     profile = await authFetch('/me');
+    project = await authFetch(`/projects/${encodeURIComponent(projectId)}`);
+    $('project-title').textContent = project.name;
+    $('project-library').href = 'projects.html?library=' + encodeURIComponent(projectId);
+    $('project-history').href = 'history.html?project=' + encodeURIComponent(projectId);
+    document.title = project.name + ' · Wavelength';
   } catch (err) {
     console.error(err);
     addBot(`<p>I couldn\u2019t load your profile. ${escapeHtml(err.message)}</p>`);
@@ -52,7 +82,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     busy = true; $('send-btn').disabled = true;
     try { await runLoop(); } finally { busy = false; $('send-btn').disabled = false; }
   });
-  greet();
+  const saved = project.state || {};
+  currentCandidates = saved.currentCandidates || {};
+  selectedTaglines = saved.selectedTaglines || {};
+  lastBrief = saved.lastBrief || lastBrief;
+  contentType = saved.contentType || 'caption';
+  generated = saved.generated || [];
+  projectFiles = saved.files || [];
+  pendingFiles = saved.pendingFiles || [];
+  renderAttachments();
+  $('prompt').value = saved.prompt || '';
+  $('content-type').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.type === contentType));
+  if (saved.messages?.length) saved.messages.forEach(m => addMsg(m.role === 'user' ? 'user' : 'bot', `<div style="white-space:pre-wrap">${escapeHtml(m.text)}</div>`));
+  else greet();
+  if (Object.keys(currentCandidates).length) {renderCards(); Loop.complete(); setStatus('done','Saved drafts');}
+  updateEmailVisibility();
+  if (saved.email) {
+    $('email-subject').value=saved.email.subject || ''; $('email-body').value=saved.email.body || '';
+    $('email-draft-box').hidden=!saved.email.visible; $('email-send-note').textContent=saved.email.note || '';
+  }
+  ['prompt','email-subject','email-body'].forEach(id => $(id).addEventListener('input',queueSave));
+  new MutationObserver(queueSave).observe($('messages'),{childList:true});
+  document.addEventListener('click', async e => { const link=e.target.closest('a[href]'); if(link && !e.metaKey && !e.ctrlKey) {e.preventDefault();clearTimeout(saveTimer);await saveWorkspace();if($('save-status').textContent === 'Saved') location.href=link.href;} });
+  window.addEventListener('beforeunload', () => { if(project) {clearTimeout(saveTimer);saveWorkspace();} });
 });
 
 /* ---------- Account menu ---------- */
@@ -109,6 +161,7 @@ function wireComposer() {
     const btn = e.target.closest('button[data-type]');
     if (!btn) return;
     contentType = btn.dataset.type;
+    queueSave();
     $('content-type').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b === btn));
   });
 
@@ -149,6 +202,7 @@ async function addFiles(fileList) {
     pendingFiles.push({ name: file.name, examples });
   }
   renderAttachments();
+  queueSave();
 }
 
 function csvCells(line) {
@@ -208,7 +262,7 @@ async function onSend(e) {
         addBot('<p>Got it. What should we post about?</p>');
     } else {
         if (/^(hi|hello|hey|thanks|thank you)[!. ]*$/i.test(text)) {
-          const data = await authFetch('/chat', {method: 'POST', body: JSON.stringify({message: text})});
+          const data = await authFetch('/chat', {method: 'POST', body: JSON.stringify({message: text, project_id: projectId})});
           addBot(`<div class="markdown">${renderMarkdown(data.response)}</div>`);
         } else {
           lastBrief = {prompt: text, contentType};
@@ -223,11 +277,9 @@ async function onSend(e) {
 }
 
 async function saveExamples(files) {
-  const existing = new Set(profile.past_taglines || []);
-  const fresh = [...new Set(files.flatMap((f) => f.examples))].filter((x) => !existing.has(x));
-  if (!fresh.length) { addBot('<p>I already have all of those posts saved.</p>'); return; }
-  profile = await authFetch('/me', { method: 'PUT', body: JSON.stringify({ past_taglines: [...existing, ...fresh] }) });
-  addBot(`<p>Saved <b>${fresh.length}</b> style example${fresh.length === 1 ? '' : 's'} from your file${files.length === 1 ? '' : 's'}. You now have ${profile.past_taglines.length} in total.</p>`);
+  projectFiles.push(...files.map(f => ({name:f.name,text:f.examples.join('\n\n')})));
+  addBot(`<p>Saved ${files.length} reference file(s) to this project.</p>`);
+  queueSave();
 }
 
 /* ==========================================================================
@@ -388,7 +440,7 @@ async function runLoop({ statesOverride = null, quiet = false } = {}) {
   // Kick off the real request right away; the animation catches up alongside it.
   const request = authFetch('/generate-taglines', {
     method: 'POST',
-    body: JSON.stringify({ prompt, content_type: ctype, states: statesOverride || undefined }),
+    body: JSON.stringify({ project_id: projectId, prompt, content_type: ctype, states: statesOverride || undefined }),
   });
   request.catch(() => {});
 
@@ -409,6 +461,7 @@ async function runLoop({ statesOverride = null, quiet = false } = {}) {
     await wait(reduceMotion ? 0 : 400);
     activeStep = 5; await step(5, 'review', `${data.results.length} draft${data.results.length === 1 ? '' : 's'} ready`, 600);
 
+    generated.push(...data.results.map(r => ({state:r.state,text:r.text,thumbs:null,approved:false})));
     data.results.forEach((r) => {
       if (statesOverride) {
         currentCandidates[r.state] = [...(currentCandidates[r.state] || []), { text: r.text, context: r.grounding_context, thumbs: null }];
@@ -527,15 +580,19 @@ async function giveFeedback(state, index, thumbs) {
   const candidate = currentCandidates[state][index];
   const toggledOff = candidate.thumbs === thumbs;
   candidate.thumbs = toggledOff ? null : thumbs;
+  generated.filter(x => x.state === state && x.text === candidate.text).forEach(x => x.thumbs=candidate.thumbs);
+  queueSave();
   rerenderCard(state);
   if (toggledOff) return; // nothing to record when un-selecting
   try {
-    await authFetch('/feedback', { method: 'POST', body: JSON.stringify({ state, tagline_text: candidate.text, thumbs }) });
+    await authFetch('/feedback', { method: 'POST', body: JSON.stringify({ project_id: projectId, state, tagline_text: candidate.text, thumbs }) });
   } catch (err) { console.error(err); }
 }
 
 function selectTagline(state, index) {
   selectedTaglines[state] = currentCandidates[state][index].text;
+  generated.filter(x => x.state === state && x.text === selectedTaglines[state]).forEach(x => x.approved=true);
+  queueSave();
   rerenderCard(state);
   updateEmailVisibility(true);
 }
@@ -552,14 +609,16 @@ function updateEmailVisibility(scroll = false) {
 function wireEmail() {
   $('draft-email-btn').addEventListener('click', async () => {
     try {
-      const data = await authFetch('/draft-email', { method: 'POST', body: JSON.stringify({ selected_taglines: selectedTaglines }) });
+      const data = await authFetch('/draft-email', { method: 'POST', body: JSON.stringify({ project_id: projectId, selected_taglines: selectedTaglines }) });
       $('email-subject').value = data.subject;
       $('email-body').value = data.body;
       $('email-draft-note').textContent = data.note;
       $('email-draft-box').hidden = false;
+      queueSave();
     } catch (err) {
       $('email-draft-note').textContent = err.message;
       $('email-draft-box').hidden = false;
+      queueSave();
     }
   });
 
@@ -567,9 +626,10 @@ function wireEmail() {
     try {
       const data = await authFetch('/send-email', {
         method: 'POST',
-        body: JSON.stringify({ subject: $('email-subject').value, body: $('email-body').value, approved: true }),
+        body: JSON.stringify({ project_id: projectId, subject: $('email-subject').value, body: $('email-body').value, approved: true }),
       });
       $('email-send-note').textContent = data.note;
+      queueSave();
     } catch (err) {
       $('email-send-note').textContent = err.message;
     }

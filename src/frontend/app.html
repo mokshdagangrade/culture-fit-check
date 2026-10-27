@@ -11,12 +11,13 @@
 <script src="js/common.js"></script>
 </head>
 <body class="app">
+<div class="project-bar"><a href="projects.html">← Projects</a><strong id="project-title"></strong><a id="project-library" href="projects.html">Files &amp; drafts</a><span id="save-status" role="status">Saved</span></div>
 <div class="shell">
 
   <!-- ============ LEFT: chat ============ -->
   <aside class="chat">
     <header class="chat-head">
-      <a class="brand" href="app.html" aria-label="Wavelength">
+      <a class="brand" href="projects.html" aria-label="Wavelength">
         <span class="logo-crop"><img src="assets/logo.png" alt="Wavelength"
           onerror="this.parentNode.outerHTML='<span class=&quot;wordmark-text&quot;>Wavelength</span>'" /></span>
       </a>
@@ -30,7 +31,7 @@
           <div class="profile-dropdown" id="profile-dropdown">
             <div class="who"><b id="brand-name-display">Account</b><span id="email-display"></span></div>
             <a href="profile.html">Brand settings</a>
-            <a href="history.html">History</a>
+            <a href="history.html" id="project-history">History</a>
             <button id="logout-btn" type="button">Log out</button>
           </div>
         </div>
