@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         method: 'PUT',
         body: JSON.stringify({ ...values, states: selectedStates, past_taglines: pastTaglines }),
       });
-      window.location.href = 'app.html';
+      window.location.href = 'projects.html';
     } catch (err) {
       showError(err.message);
       btn.disabled = false;

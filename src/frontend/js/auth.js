@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-  if (getToken()) { window.location.href = 'app.html'; return; }
+  if (getToken()) { window.location.href = 'projects.html'; return; }
 
   const $ = (id) => document.getElementById(id);
   const tabLogin = $('tab-login'), tabSignup = $('tab-signup');
@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       setToken(data.token);
-      window.location.href = data.profile_complete ? 'app.html' : 'profile.html?onboarding=1';
+      window.location.href = data.profile_complete ? 'projects.html' : 'profile.html?onboarding=1';
     } catch (err) {
       showFormError(errorBox, err.message);
     } finally {

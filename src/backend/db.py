@@ -28,3 +28,6 @@ history_collection.create_index([("user_id", 1), ("created_at", -1)])
 
 # one account per email
 users_collection.create_index("email", unique=True)
+
+projects_collection = db["projects"]
+projects_collection.create_index([("user_id", 1), ("updated_at", -1)])

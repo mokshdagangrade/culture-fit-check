@@ -31,7 +31,7 @@ class GenerationTests(unittest.TestCase):
         with patch.object(main.llm, 'call_llm', return_value='Coming soon.') as call:
             main.generate_taglines(GenerateRequest(prompt='give me the content', states=['California']), self.user)
         self.assertIn('Secret launch', call.call_args.args[0])
-        database.history_collection.find.assert_called_with({'user_id': 'brand-a'})
+        database.history_collection.find.assert_called_with({'user_id': 'brand-a', 'project_id': None})
 
     def test_regions_and_validation(self):
         self.assertEqual(len(main.regions()[0]['states']), 50)
