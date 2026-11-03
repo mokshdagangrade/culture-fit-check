@@ -1,5 +1,14 @@
 document.addEventListener('DOMContentLoaded', async () => {
   requireAuth();
+  let logoData = '';
+  const logoPreview = document.getElementById('brand-logo-preview');
+  function renderLogo() { logoPreview.hidden = !logoData; logoPreview.src = logoData || ''; }
+  document.getElementById('brand-logo-file').addEventListener('change', async e => {
+    try { if(e.target.files[0]) {logoData=await readLogoFile(e.target.files[0]);renderLogo();} }
+    catch(err) {showError(err.message);}
+    e.target.value='';
+  });
+  document.getElementById('remove-brand-logo').onclick = () => {logoData='';renderLogo();};
 
   const params = new URLSearchParams(window.location.search);
   const isOnboarding = params.get('onboarding') === '1';
@@ -24,6 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   try {
     const profile = await authFetch('/me');
+    logoData=profile.logo_data || '';renderLogo();
     ['description', 'target_audience', 'products'].forEach(id => document.getElementById(id).value = profile[id] || '');
     document.getElementById('business_name').value = profile.business_name || '';
     document.getElementById('industry').value = profile.industry || '';
@@ -95,7 +105,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       await authFetch('/me', {
         method: 'PUT',
-        body: JSON.stringify({ ...values, states: selectedStates, past_taglines: pastTaglines }),
+        body: JSON.stringify({ ...values, logo_data: logoData, states: selectedStates, past_taglines: pastTaglines }),
       });
       window.location.href = 'projects.html';
     } catch (err) {

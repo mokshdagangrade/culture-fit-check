@@ -150,7 +150,45 @@ function autoGrow() {
   t.style.height = Math.min(t.scrollHeight, 160) + 'px';
 }
 
+function renderImageReferences() {
+  $('image-reference-list').innerHTML=(project.image_references || []).map((r,i)=>`<span class="attach-chip">${escapeHtml(r.name)} · ${escapeHtml(r.role)}<button type="button" data-remove-reference="${i}" aria-label="Remove ${escapeHtml(r.name)}">×</button></span>`).join('');
+}
+async function saveImageReferences(references) {
+  await authFetch(`/projects/${encodeURIComponent(projectId)}/image-references`, {method:'PUT',body:JSON.stringify({references})});
+  project.image_references=references;renderImageReferences();
+}
 function wireComposer() {
+  renderImageReferences();
+  $('upload-image-reference').onclick=()=>$('image-reference-file').click();
+  $('image-reference-file').onchange=async e=> {
+    const button=$('upload-image-reference');button.disabled=true;
+    try {
+      const files=Array.from(e.target.files); const existing=project.image_references || [];
+      if(existing.length+files.length>3) throw new Error('Use up to three reference images plus your logo. Remove an existing reference to replace it.');
+      const role=$('reference-role').value;
+      const added=await Promise.all(files.map(async file=>({name:file.name,role,data:await readLogoFile(file)})));
+      await saveImageReferences([...existing,...added]);
+      addBot('<p>Reference images saved. Future visuals will use all listed references, with matching lighting, perspective and composition.</p>');
+    } catch(err) {addBot(`<p>${escapeHtml(err.message)}</p>`);}
+    finally {button.disabled=false;e.target.value='';}
+  };
+  $('image-reference-list').onclick=async e=> {
+    const button=e.target.closest('[data-remove-reference]');if(!button)return;button.disabled=true;
+    try {await saveImageReferences((project.image_references || []).filter((r,i)=>i!==Number(button.dataset.removeReference)));}
+    catch(err){button.disabled=false;addBot(`<p>${escapeHtml(err.message)}</p>`);}
+  };
+
+  $('upload-project-logo').onclick=() => $('project-logo-file').click();
+  $('project-logo-file').addEventListener('change', async e => {
+    const file=e.target.files[0]; if(!file) return;
+    const button=$('upload-project-logo');button.disabled=true;
+    try {
+      const data=await readLogoFile(file);
+      await authFetch(`/projects/${encodeURIComponent(projectId)}/logo`,{method:'PUT',body:JSON.stringify({name:file.name,data})});
+      addBot('<p>Your uploaded logo is saved for this project. Future visuals will use it as the approved brand mark in the composition.</p>');
+    } catch(err) {addBot(`<p>${escapeHtml(err.message)}</p>`);}
+    finally {button.disabled=false;e.target.value='';}
+  });
   const prompt = $('prompt');
   prompt.addEventListener('input', autoGrow);
   prompt.addEventListener('keydown', (e) => {
@@ -186,6 +224,14 @@ function wireComposer() {
 /* ---------- Style-example files ---------- */
 async function addFiles(fileList) {
   for (const file of Array.from(fileList || [])) {
+    if (/^image\/(png|jpeg|webp)$/.test(file.type)) {
+      try {
+        const refs=project.image_references || [];if(refs.length>=3) throw new Error('Remove a reference image before adding another (maximum three).');
+        await saveImageReferences([...refs,{name:file.name,role:$('reference-role').value,data:await readLogoFile(file)}]);
+        addBot(`<p>Saved ${escapeHtml(file.name)} as a ${escapeHtml($('reference-role').value)} image reference.</p>`);
+      } catch(err) {addBot(`<p>${escapeHtml(err.message)}</p>`);}
+      continue;
+    }
     if (!/\.(txt|md|csv)$/i.test(file.name)) {
       addBot(`<p>I can read <b>.txt</b>, <b>.md</b> and <b>.csv</b> files of past posts. <b>${escapeHtml(file.name)}</b> isn\u2019t one of those.</p>`);
       continue;
@@ -464,9 +510,9 @@ async function runLoop({ statesOverride = null, quiet = false } = {}) {
     generated.push(...data.results.map(r => ({state:r.state,text:r.text,thumbs:null,approved:false})));
     data.results.forEach((r) => {
       if (statesOverride) {
-        currentCandidates[r.state] = [...(currentCandidates[r.state] || []), { text: r.text, context: r.grounding_context, thumbs: null }];
+        currentCandidates[r.state] = [...(currentCandidates[r.state] || []), { text: r.text, context: r.grounding_context, thumbs: null, brief: prompt }];
       } else {
-        currentCandidates[r.state] = [{ text: r.text, context: r.grounding_context, thumbs: null }];
+        currentCandidates[r.state] = [{ text: r.text, context: r.grounding_context, thumbs: null, brief: prompt }];
       }
     });
     if (!statesOverride) selectedTaglines = {};
@@ -541,6 +587,7 @@ function candidateTemplate(state, index, c) {
       ${ctxChips(c.context)}
       <div class="candidate-text">${renderMarkdown(c.text)}</div>
       <div class="candidate-actions">
+        <button type="button" class="use-btn" data-action="image">Generate image / poster</button>
         <button type="button" class="use-btn" data-action="copy" aria-label="Copy draft for ${escapeHtml(state)}">Copy</button>
         <button type="button" class="thumb ${c.thumbs === 'up' ? 'active' : ''}" data-action="up" aria-label="Thumbs up" aria-pressed="${c.thumbs === 'up'}">👍</button>
         <button type="button" class="thumb ${c.thumbs === 'down' ? 'active' : ''}" data-action="down" aria-label="Thumbs down" aria-pressed="${c.thumbs === 'down'}">👎</button>
@@ -563,6 +610,7 @@ function wireResults() {
     if (btn.dataset.action === 'copy') return copyContent(btn, btn.closest('.candidate-row').querySelector('.candidate-text'));
     if (btn.dataset.action === 'regen') return regenerateState(state);
     const index = Number(btn.closest('.candidate-row').dataset.index);
+    if (btn.dataset.action === 'image') return generateCampaignImage(state, index, btn);
     if (btn.dataset.action === 'use') return selectTagline(state, index);
     return giveFeedback(state, index, btn.dataset.action);
   });
@@ -634,4 +682,27 @@ function wireEmail() {
       $('email-send-note').textContent = err.message;
     }
   });
+}
+
+
+async function generateCampaignImage(state, index, button) {
+  const row = button.closest('.candidate-row');
+  const content = currentCandidates[state][index].text;
+  button.disabled = true;
+  button.textContent = 'Creating image…';
+  let preview = row.querySelector('.image-preview');
+  if (!preview) { preview = document.createElement('div'); preview.className = 'image-preview'; row.appendChild(preview); }
+  preview.setAttribute('aria-live', 'polite');
+  preview.textContent = 'Creating your campaign visual. This may take a minute.';
+  try {
+    const data = await authFetch('/generate-image', {method:'POST', body:JSON.stringify({content, state, project_id: projectId, campaign_brief: currentCandidates[state][index].brief || ''})});
+    if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(data.image)) throw new Error('Invalid image response');
+    const image = document.createElement('img'); image.src=data.image; image.alt='Generated campaign illustration for ' + state;
+    const download = document.createElement('a'); download.href=data.image; download.download='campaign-image.jpg'; download.className='btn-ghost'; download.textContent='Download image';
+    const poster = document.createElement('button'); poster.type='button'; poster.className='btn-ghost'; poster.textContent='Download poster with content';
+    poster.onclick=() => downloadCampaignPoster(image, content, profile.business_name || '');
+    const note=document.createElement('p');note.textContent=data.note;
+    preview.replaceChildren(image, download, poster, note);
+  } catch(err) {preview.textContent=err.message;}
+  finally {button.disabled=false;button.textContent='Generate image / poster';}
 }

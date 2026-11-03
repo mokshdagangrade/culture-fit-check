@@ -53,6 +53,14 @@ class AuthResponse(BaseModel):
 
 
 class ProfileUpdate(BaseModel):
+    logo_data: Optional[str] = Field(default=None, max_length=1_400_000)
+
+    @field_validator("logo_data")
+    @classmethod
+    def check_logo(cls, value):
+        from image_generation import validate_logo
+        return validate_logo(value)
+
     description: Optional[str] = None
     target_audience: Optional[str] = None
     products: Optional[str] = None
@@ -70,6 +78,7 @@ class ProfileUpdate(BaseModel):
 
 
 class ProfileResponse(BaseModel):
+    logo_data: str = ""
     description: Optional[str] = None
     target_audience: Optional[str] = None
     products: Optional[str] = None
@@ -145,3 +154,28 @@ class ProjectCreate(BaseModel):
 
 class ProjectUpdate(BaseModel):
     state: dict
+
+
+class ImageRequest(BaseModel):
+    campaign_brief: str = Field(default='', max_length=4000)
+    project_id: Optional[str] = None
+    content: str = Field(min_length=1, max_length=4000)
+    state: str = Field(default='', max_length=120)
+
+
+class LogoUpload(BaseModel):
+    name: str = Field(default='brand-logo.png', max_length=200)
+    data: str = Field(max_length=1_400_000)
+
+    @field_validator('data')
+    @classmethod
+    def check_logo(cls, value):
+        from image_generation import validate_logo
+        return validate_logo(value)
+
+
+class ImageReference(LogoUpload):
+    role: Literal['product', 'style', 'setting']
+
+class ReferenceUpload(BaseModel):
+    references: list[ImageReference] = Field(max_length=3)

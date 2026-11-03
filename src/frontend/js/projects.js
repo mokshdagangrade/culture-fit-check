@@ -16,7 +16,7 @@ function downloadProjectFile(file) {
 }
 function libraryFiles(project) {
   const state = project.state || {};
-  return [...(project.files || []), ...(state.files || []), ...(state.generated || []).map((item, i) => ({name: `${item.state || 'Draft'}-${i + 1}.txt`, text: item.text, label: item.approved ? 'Selected' : item.thumbs === 'up' ? 'Liked' : 'Draft'})), ...(state.email?.subject ? [{name:'Email-draft.txt',text:state.email.subject+'\n\n'+state.email.body,label:state.email.approved ? 'Approved' : 'Email draft'}] : [])];
+  return [...(project.image_references || []), ...(project.logo?.data ? [project.logo] : []), ...(project.images || []), ...(project.files || []), ...(state.files || []), ...(state.generated || []).map((item, i) => ({name: `${item.state || 'Draft'}-${i + 1}.txt`, text: item.text, label: item.approved ? 'Selected' : item.thumbs === 'up' ? 'Liked' : 'Draft'})), ...(state.email?.subject ? [{name:'Email-draft.txt',text:state.email.subject+'\n\n'+state.email.body,label:state.email.approved ? 'Approved' : 'Email draft'}] : [])];
 }
 function renderProjects() {
   byId('projects-grid').innerHTML = projects.map(p => {

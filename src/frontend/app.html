@@ -38,16 +38,25 @@
       </div>
     </header>
 
+    <div id="image-reference-list" class="attachments" aria-live="polite"></div>
     <div class="messages" id="messages" aria-live="polite"></div>
 
     <form class="composer" id="composer" autocomplete="off">
       <div class="attachments" id="attachments"></div>
       <textarea id="prompt" rows="1" placeholder="What should we post about?" aria-label="Message"></textarea>
-      <div class="composer-row">
+      <div class="composer-tools">
         <button class="icon-btn" id="attach-btn" type="button" title="Add past posts as style examples (.txt, .md or .csv)" aria-label="Attach a file of past posts">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.1l-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
         </button>
-        <input type="file" id="file-input" accept=".txt,.md,.csv,text/plain,text/markdown,text/csv" multiple hidden />
+        <label for="reference-role" class="sr-only">Image reference role</label>
+        <select id="reference-role" aria-label="How to use uploaded images"><option value="product">Product photo</option><option value="style">Style reference</option><option value="setting">Setting reference</option></select>
+        <button class="btn-ghost" type="button" id="upload-image-reference">Add image</button>
+        <input type="file" id="image-reference-file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+        <button class="btn-ghost" type="button" id="upload-project-logo">Add logo</button>
+        <input type="file" id="project-logo-file" accept="image/png,image/jpeg,image/webp" hidden>
+        <input type="file" id="file-input" accept=".txt,.md,.csv,text/plain,text/markdown,text/csv,image/png,image/jpeg,image/webp" multiple hidden />
+      </div>
+      <div class="composer-row">
         <div class="seg" id="content-type" role="radiogroup" aria-label="Content type">
           <button type="button" data-type="caption" aria-pressed="true">Caption</button>
           <button type="button" data-type="notification" aria-pressed="false">Notification</button>
