@@ -62,15 +62,22 @@ def check_batch(stitched_docs: list, expected_date) -> dict:
     if wrong_date:
         report["errors"].append(f"document(s) not dated {expected_date}: {wrong_date}")
 
+    now = datetime.now(timezone.utc)
     source_missing_counts = Counter()
     source_error_counts = Counter()
+    stale = []
     for d in stitched_docs:
-        for src in d.sources_missing:
-            source_missing_counts[src] += 1
+        source_missing_counts.update(d.sources_missing)
         for src_name in d.sources_present:
             src_doc = getattr(d.signals, src_name)
-            if src_doc is not None and src_doc.meta.status == "error":
+            if src_doc is None:
+                continue
+            if src_doc.meta.status == "error":
                 source_error_counts[src_name] += 1
+            # Country calendars deliberately retain their original cached fetch time.
+            # Calendar cache expiry is checked by the extractor, not this hourly rule.
+            if src_name != "calendar" and (now - src_doc.meta.fetched_at).total_seconds() > 3600:
+                stale.append((d.state_code, src_name))
 
     report["coverage"] = {
         "states_processed": len(stitched_docs),
@@ -79,15 +86,6 @@ def check_batch(stitched_docs: list, expected_date) -> dict:
         "errored_by_source": dict(source_error_counts),
     }
 
-    now = datetime.now(timezone.utc)
-    stale = []
-    for d in stitched_docs:
-        for src_name in d.sources_present:
-            src_doc = getattr(d.signals, src_name)
-            # Country calendars deliberately retain their original cached fetch time.
-            # Calendar cache expiry is checked by the extractor, not this hourly rule.
-            if src_name != "calendar" and src_doc is not None and (now - src_doc.meta.fetched_at).total_seconds() > 3600:
-                stale.append((d.state_code, src_name))
     if stale:
         report["warnings"].append(f"fetched over an hour before validation ran: {stale}")
 

@@ -1,10 +1,14 @@
 from datetime import date, datetime, timezone
 
-
 from http_client import throttle_host
 from schemas import TrendsDoc, TrendItem, SourceMeta, GeoTag
 
 RSS_HOST = "trends.google.com"
+
+
+def first_headline(news):
+    """Headline of the first linked news item, or None if there are none."""
+    return news[0].get("headline") if news else None
 
 
 def fetch_trends(state: dict, limit: int = 10) -> TrendsDoc:
@@ -19,7 +23,7 @@ def fetch_trends(state: dict, limit: int = 10) -> TrendsDoc:
             keyword=t["keyword"],
             rank=t.get("rank"),
             volume_min=t.get("volume_min"),
-            news_headline=(t.get("news") or [{}])[0].get("headline") if t.get("news") else None,
+            news_headline=first_headline(t.get("news")),
         )
         for t in env.get("trends", [])[:limit]
     ]
