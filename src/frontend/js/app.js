@@ -562,7 +562,7 @@ function renderCards() {
 
 function ctxChips(context) {
   if (!context || !Object.keys(context).length) return '<div class="ctx"><span>No recent state data available</span></div>';
-  return `<details class="source-context"><summary>Context supplied to AI · ${Object.keys(context).length} source(s)</summary><p>The AI uses relevant signals when they fit your brief; availability does not mean each signal appears in the draft.</p>${Object.entries(context).map(([name, signal]) => `<div><strong>${escapeHtml(name)}</strong>${signal.date ? ` · ${escapeHtml(signal.date)}` : ''}${signal.source ? ` · ${escapeHtml(signal.source)}` : ''}${signal.scope ? ` · ${escapeHtml(signal.scope)}` : ''}${signal.confidence ? ` · ${escapeHtml(signal.confidence)}` : ''}<pre>${escapeHtml(typeof signal === 'object' ? JSON.stringify(signal.data, null, 2) : String(signal))}</pre></div>`).join('')}</details>`;
+  return `<details class="source-context"><summary>Context supplied to AI · ${context.signal_selection?.selected?.length ?? 0} source(s)</summary><p>The AI uses relevant signals when they fit your brief; availability does not mean each signal appears in the draft.</p>${Object.entries(context).map(([name, signal]) => `<div><strong>${escapeHtml(name)}</strong>${signal.date ? ` · ${escapeHtml(signal.date)}` : ''}${signal.source ? ` · ${escapeHtml(signal.source)}` : ''}${signal.scope ? ` · ${escapeHtml(signal.scope)}` : ''}${signal.confidence ? ` · ${escapeHtml(signal.confidence)}` : ''}<pre>${escapeHtml(typeof signal === 'object' ? JSON.stringify(signal.data, null, 2) : String(signal))}</pre></div>`).join('')}</details>`;
 }
 
 function cardTemplate(state) {

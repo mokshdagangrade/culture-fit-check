@@ -113,6 +113,7 @@ class TaglineCandidate(BaseModel):
 class GenerateResponse(BaseModel):
     results: list[TaglineCandidate]
     note: str
+    hooks_available: bool
 
 
 class FeedbackRequest(BaseModel):

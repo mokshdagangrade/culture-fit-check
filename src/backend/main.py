@@ -317,7 +317,8 @@ def generate_taglines(req: GenerateRequest, user: dict = Depends(get_current_use
     history_collection.insert_one({"user_id": user["_id"], "project_id": req.project_id, "prompt": req.prompt,
         "content_type": req.content_type, "states": states,
         "results": [r.model_dump() for r in results], "created_at": datetime.now(timezone.utc)})
-    return GenerateResponse(results=results, note="Drafts saved to history. Recent state signals are used when available.")
+    return GenerateResponse(results=results, note="Drafts saved to history. Recent state signals are used when available.",
+        hooks_available=all(bool(r.grounding_context["signal_selection"]["selected"]) for r in results))
 
 
 # ---------- Feedback ----------
