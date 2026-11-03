@@ -16,7 +16,7 @@ from datetime import date
 from pathlib import Path
 
 from dotenv import load_dotenv
-from pymongo import MongoClient
+from pymongo import MongoClient, ReplaceOne
 from validate import check_snapshot_pair
 
 PIPELINE_DIR = Path(__file__).resolve().parent
@@ -53,10 +53,11 @@ def load_file(json_path: Path) -> int:
         if national is not None:
             client[DB_NAME]["national_signals_daily"].replace_one(
                 {"country_code": national["country_code"], "date": national["date"]}, national, upsert=True)
-        for doc in docs:
-            collection.replace_one(
-                {"state_code": doc["state_code"], "date": doc["date"]}, doc, upsert=True)
-            upserted += 1
+        if docs:
+            collection.bulk_write([
+                ReplaceOne({"state_code": doc["state_code"], "date": doc["date"]}, doc, upsert=True)
+                for doc in docs])
+        upserted = len(docs)
     finally:
         client.close()
     return upserted

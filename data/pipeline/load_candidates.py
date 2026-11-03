@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pandas as pd
 from dotenv import load_dotenv
-from pymongo import ASCENDING, MongoClient
+from pymongo import ASCENDING, MongoClient, ReplaceOne
 
 PIPELINE_DIR = Path(__file__).resolve().parent
 load_dotenv(PIPELINE_DIR / ".env", override=False)
@@ -79,8 +79,9 @@ def main():
         collection.create_index([("state_code", ASCENDING), ("date", ASCENDING)])
         collection.create_index([("is_national", ASCENDING), ("date", ASCENDING)])
         collection.create_index([("signal_id", ASCENDING)], unique=True)
-        for doc in docs:
-            collection.replace_one({"signal_id": doc["signal_id"]}, doc, upsert=True)
+        # One round trip for the whole day instead of one per candidate.
+        collection.bulk_write(
+            [ReplaceOne({"signal_id": doc["signal_id"]}, doc, upsert=True) for doc in docs])
     finally:
         client.close()
 
