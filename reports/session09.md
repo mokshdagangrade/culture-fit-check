@@ -36,6 +36,8 @@ north_star:
 - Added a retrieval evaluation harness (`training/make_retrieval_review.py`, `training/score_retrieval_review.py`): builds a stratified manual review set from the cleaned signal snapshot and scores it once labelled. 11 new tests; 30 pass in `training/`.
 - Made missing regional hooks observable with state-specific candidate/ranker diagnostics and a `hooks_available` API flag, while preserving graceful draft generation.
 - Corrected the context panel count to reflect selected signals instead of audit objects, improving the accuracy of the grounding information shown in demos.
+- Added an ingest for two open Hugging Face reference datasets (extractors/check_hf_datasets.py), kept as separate sources rather than a train/test pair: marketing-instruct-8k (Apache 2.0, prompt-to-copy pairs) and brandvoice-marketing-briefs (CC0, real brand copy, held out). Both write JSON to out/ next to the signal snapshots.
+- Output-preserving pipeline cleanups: single-pass source validation in validate.py, one bulk_write per load in both Mongo loaders instead of one call per document, and a small helper for trend headline extraction.
 
 ## User evidence
 
@@ -43,6 +45,7 @@ north_star:
 - Updated prompts and reference-image support in response; the user confirmed the corrected chat alignment worked.
 - Feedback is qualitative; no new independent user study or measured localization improvement was recorded.
 - No human-labelled retrieval data exists yet: the 290-row review set and annotation protocol are ready, but no reviewer has labelled a row, so no retrieval number is reported this week.
+- The data-side work this week produced no new user evidence. The held-out brand corpus is an offline reference for how real brand copy reads, not user validation.
 
 ## Metrics snapshot
 
@@ -53,6 +56,7 @@ north_star:
 - Measured on: the 2026-10-20 cleaned snapshot (`signal_candidate`, 37,788 rows, one day; not a held-out split). Is this the same model running in the product? **Yes** for the gate and candidate pool — produced by the shipped `trend_service.unsafe_reason` and `candidate_service.get_candidate_pool`. Ranking was skipped, so no ranker figure is reported.
 - All 17 existing ranker/export tests passed again after integrating the fixes with the latest `main`; changed backend files passed syntax and whitespace checks.
 - Three isolated checks passed for candidate diagnostics, ranker fallback/threshold logging, and API flag behavior across fully grounded, ungrounded, and mixed-state results.
+- Reference datasets are sized as stated on their dataset cards (about 8.4k prompt-to-copy rows. 83 brands in the held-out set). No model or retrieval metric is reported from them yet
 
 ## What did not work
 
@@ -63,6 +67,7 @@ north_star:
 - Lexical retrieval over these signals does not work: TF-IDF cosine between a seasonal-launch brief and the Texas pool peaked at **0.037**, with top matches being event titles containing the word "friends" (band names). Signal texts average 40 characters of proper nouns. Recorded as a negative result, and the reason ranking is an LLM call rather than a vector search.
 - Generation could continue without selected hooks after empty retrieval, ranker errors, or scores below 5; added explicit diagnostics and a false availability flag whenever any requested state has no selected hooks.
 - The context panel counted top-level context objects, inflating the displayed signal count; changed the count to use `signal_selection.selected`, defaulting to zero.
+- Real brand ad copy could not be sourced from the ad libraries: Meta's official Ad Library API returns only political and issue ads for the US, and Google's Ads Transparency Center has no public API or state breakdown. Scraping both would have meant browser automation that breaks when the pages change, plus terms-of-service risk, so the team switched to two openly licensed datasets instead.
 
 ## Challenges / blockers
 
@@ -74,6 +79,8 @@ north_star:
 - Two safety-gate defects found: voter-registration phrasing passes (`\bvote\b` does not match "voter", so "Updated voter address" and "polling place change" get through), and event titles are over-refused ("Five Finger Death Punch", "Day of the Dead River Parade"). The labelling session will quantify the second.
 - The production trigger for missing hooks remains unconfirmed; new diagnostics distinguish retrieval gaps, provider/parsing failures, and low or missing relevance scores.
 - Missing local backend dependencies prevented full FastAPI integration verification; validation used existing offline tests and isolated checks, and the frontend count still needs browser verification.
+- Both reference datasets skew US and English, and the marketing-instruct card notes that part of it is synthetic. Neither carries a state or a date, so they cannot be joined to the regional signals directly.
+- brandvoice-marketing-briefs is small (83 brands), so any retrieval check against it will carry wide uncertainty and can only confirm that a hook type is plausible, not that it was right for a given state.
 
 ## Next week's goal
 
@@ -85,9 +92,8 @@ north_star:
 
 ## Individual contributions
 
-- Stuti Patel (Product): To be added.
-- Riya Puri (Engineering): To be added.
-  Made regional grounding more transparent and demo results more trustworthy by adding candidate/ranker failure diagnostics, exposing hook availability in the generation API, and correcting the context panel's selected-signal count. Integrated the five-file fix with the latest `main` on a dedicated branch and verified it with 17 existing tests, three isolated checks, and backend syntax/whitespace checks.
+- Stuti Patel (Product): Made output-preserving pipeline cleanups: merged the duplicate source loops in `validate.py` into a single pass, replaced per-document Mongo upserts with one `bulk_write` per load, and simplified trend headline extraction. Checked old and new code against identical mocked inputs to confirm the outputs match.
+- Riya Puri (Engineering): Made regional grounding more transparent and demo results more trustworthy by adding candidate/ranker failure diagnostics, exposing hook availability in the generation API, and correcting the context panel's selected-signal count. Integrated the five-file fix with the latest `main` on a dedicated branch and verified it with 17 existing tests, three isolated checks, and backend syntax/whitespace checks.
 - Vyom Agarwal (Data&Eval): Built the retrieval evaluation harness — `make_retrieval_review.py` generates a stratified, deduplicated review set (brand x state x brief cells, source-balanced, model scores withheld and order shuffled so reviewers cannot anchor, gate refusals included as labelled rows), and `score_retrieval_review.py` scores it into precision@3, recall of usable signals, top-1 agreement, per-source breakdown, gate precision and Cohen's kappa, each with its denominator. Added 11 tests; wrote the 0/1/2 annotation protocol. Measured the shipped safety gate across the full snapshot (7.6% refused, 26.1% of trends) and found two concrete defects. Established as a negative result that lexical retrieval is unusable here, justifying the LLM ranker. Diagnosed the nine-session TBD north-star and proposed a measurable replacement.
 - Mokshda Gangrade (Users&Research): Implemented hosted image/poster generation, campaign-specific visual planning, reference/logo uploads, storage/downloads, diagnostics, and chat layout fixes. Added regression tests and checked live reference generation.
 
