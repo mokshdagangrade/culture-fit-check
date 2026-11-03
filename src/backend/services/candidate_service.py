@@ -77,6 +77,7 @@ def get_candidate_pool(state: str, today: date | None = None) -> dict:
     """
     code = STATE_CODES_BY_NAME.get(state)
     if not code:
+        logger.warning("No candidate pool: unsupported state=%s", state)
         return {"as_of": None, "stale_days": None, "pool": [], "refused": [], "counts": {}}
 
     today = today or datetime.now(timezone.utc).date()
@@ -94,10 +95,11 @@ def get_candidate_pool(state: str, today: date | None = None) -> dict:
             {"_id": 0},
         ).sort([("date", -1), ("position", 1)]))
     except PyMongoError:
-        logger.warning("Signal candidates unavailable for %s", code)
+        logger.exception("Candidate query failed: state=%s dates=%s..%s", code, earliest, today.isoformat())
         return {"as_of": None, "stale_days": None, "pool": [], "refused": [], "counts": {}}
 
     if not docs:
+        logger.warning("No matching candidates: state=%s dates=%s..%s", code, earliest, today.isoformat())
         return {"as_of": None, "stale_days": None, "pool": [], "refused": [], "counts": {}}
 
     # Use one day only -- mixing days would present stale signals as current.
@@ -134,6 +136,8 @@ def get_candidate_pool(state: str, today: date | None = None) -> dict:
 
     # Interleave so the cap doesn't truncate whole sources off the end.
     pool = _interleave(pool)[:POOL_SIZE]
+    if not pool:
+        logger.warning("Candidate pool empty after filtering: state=%s date=%s matched=%d refused=%d", code, as_of, len(docs), len(refused))
 
     return {
         "as_of": as_of,

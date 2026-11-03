@@ -142,8 +142,10 @@ def rank_signals(brief: str, company: dict, state: str, pool: list,
                                        "assessment_status": "unassessed"}
                                       for index, signal in enumerate(pool)]})
     if not pool:
+        logger.warning("No ranked hooks: state=%s reason=empty-pool", state)
         return [], "empty-pool"
     if not llm.is_configured():
+        logger.warning("No ranked hooks: state=%s reason=no-llm candidates=%d", state, len(pool))
         return [], "fallback:no-llm"
 
     try:
@@ -154,14 +156,18 @@ def rank_signals(brief: str, company: dict, state: str, pool: list,
             max_tokens=max(600, len(pool) * 100),
         )
     except llm.LLMError as exc:
-        logger.warning("Signal ranker call failed: %s", exc)
+        logger.warning("Signal ranker call failed: state=%s candidates=%d error=%s", state, len(pool), exc)
         return [], "fallback:llm-error"
 
     try:
         assessments = parse_assessments(raw, pool)
         if audit is not None:
             audit["assessments"] = assessments
-        return select_assessments(assessments), "llm"
+        selected = select_assessments(assessments)
+        if not selected:
+            assessed = sum(row["assessment_status"] == "assessed" for row in assessments)
+            logger.warning("No ranked hooks: state=%s candidates=%d below_threshold=%d unassessed=%d score_floor=%d", state, len(pool), assessed, len(pool) - assessed, SCORE_FLOOR)
+        return selected, "llm"
     except ValueError as exc:
-        logger.warning("Signal ranker returned unparseable JSON: %s", exc)
+        logger.warning("Signal ranker returned unparseable JSON: state=%s candidates=%d error=%s", state, len(pool), exc)
         return [], "fallback:bad-json"
