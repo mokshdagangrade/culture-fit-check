@@ -34,6 +34,8 @@ north_star:
 - Added product, style, setting, and logo uploads as actual inputs to reference-image generation, with project logos overriding brand settings.
 - Improved upload validation, provider error messages, and chat composer alignment; documented the workflow in README.
 - Added a retrieval evaluation harness (`training/make_retrieval_review.py`, `training/score_retrieval_review.py`): builds a stratified manual review set from the cleaned signal snapshot and scores it once labelled. 11 new tests; 30 pass in `training/`.
+- Made missing regional hooks observable with state-specific candidate/ranker diagnostics and a `hooks_available` API flag, while preserving graceful draft generation.
+- Corrected the context panel count to reflect selected signals instead of audit objects, improving the accuracy of the grounding information shown in demos.
 
 ## User evidence
 
@@ -49,6 +51,8 @@ north_star:
 - Supports three image references plus one logo; PNG/JPEG/WebP uploads are limited to 1 MB and 16 megapixels each.
 - Safety-gate refusal rate on the 2026-10-20 snapshot: **7.6%** of candidates (2,631 of 34,532). By source: trends **26.1%**, social 17.7%, news 11.6%, events 3.8%, sports 0%. Categories: politics 978, death 902, violence 325.
 - Measured on: the 2026-10-20 cleaned snapshot (`signal_candidate`, 37,788 rows, one day; not a held-out split). Is this the same model running in the product? **Yes** for the gate and candidate pool — produced by the shipped `trend_service.unsafe_reason` and `candidate_service.get_candidate_pool`. Ranking was skipped, so no ranker figure is reported.
+- All 17 existing ranker/export tests passed again after integrating the fixes with the latest `main`; changed backend files passed syntax and whitespace checks.
+- Three isolated checks passed for candidate diagnostics, ranker fallback/threshold logging, and API flag behavior across fully grounded, ungrounded, and mixed-state results.
 
 ## What did not work
 
@@ -57,6 +61,8 @@ north_star:
 - One Cloudflare request returned HTTP 400/code 3030; a later retry succeeded, leaving the original cause unconfirmed. Added clearer diagnostics.
 - The north-star metric has read TBD for nine consecutive sessions. Diagnosis: it specifies a scoring product the team stopped building in October, so no work toward it could have produced a number. It needs replacing, not pursuing.
 - Lexical retrieval over these signals does not work: TF-IDF cosine between a seasonal-launch brief and the Texas pool peaked at **0.037**, with top matches being event titles containing the word "friends" (band names). Signal texts average 40 characters of proper nouns. Recorded as a negative result, and the reason ranking is an LLM call rather than a vector search.
+- Generation could continue without selected hooks after empty retrieval, ranker errors, or scores below 5; added explicit diagnostics and a false availability flag whenever any requested state has no selected hooks.
+- The context panel counted top-level context objects, inflating the displayed signal count; changed the count to use `signal_selection.selected`, defaulting to zero.
 
 ## Challenges / blockers
 
@@ -66,6 +72,8 @@ north_star:
 - Poster layouts and broader browser/device testing need further work.
 - Only one day of signals has ever been collected (2026-10-20) and nothing schedules the pipeline, so retrieval serves a snapshot now 14 days old and `candidate_service` reports `empty-pool` silently when nothing is loaded. No temporal evaluation is possible until collection runs daily.
 - Two safety-gate defects found: voter-registration phrasing passes (`\bvote\b` does not match "voter", so "Updated voter address" and "polling place change" get through), and event titles are over-refused ("Five Finger Death Punch", "Day of the Dead River Parade"). The labelling session will quantify the second.
+- The production trigger for missing hooks remains unconfirmed; new diagnostics distinguish retrieval gaps, provider/parsing failures, and low or missing relevance scores.
+- Missing local backend dependencies prevented full FastAPI integration verification; validation used existing offline tests and isolated checks, and the frontend count still needs browser verification.
 
 ## Next week's goal
 
@@ -79,6 +87,7 @@ north_star:
 
 - Stuti Patel (Product): To be added.
 - Riya Puri (Engineering): To be added.
+  Made regional grounding more transparent and demo results more trustworthy by adding candidate/ranker failure diagnostics, exposing hook availability in the generation API, and correcting the context panel's selected-signal count. Integrated the five-file fix with the latest `main` on a dedicated branch and verified it with 17 existing tests, three isolated checks, and backend syntax/whitespace checks.
 - Vyom Agarwal (Data&Eval): Built the retrieval evaluation harness — `make_retrieval_review.py` generates a stratified, deduplicated review set (brand x state x brief cells, source-balanced, model scores withheld and order shuffled so reviewers cannot anchor, gate refusals included as labelled rows), and `score_retrieval_review.py` scores it into precision@3, recall of usable signals, top-1 agreement, per-source breakdown, gate precision and Cohen's kappa, each with its denominator. Added 11 tests; wrote the 0/1/2 annotation protocol. Measured the shipped safety gate across the full snapshot (7.6% refused, 26.1% of trends) and found two concrete defects. Established as a negative result that lexical retrieval is unusable here, justifying the LLM ranker. Diagnosed the nine-session TBD north-star and proposed a measurable replacement.
 - Mokshda Gangrade (Users&Research): Implemented hosted image/poster generation, campaign-specific visual planning, reference/logo uploads, storage/downloads, diagnostics, and chat layout fixes. Added regression tests and checked live reference generation.
 
