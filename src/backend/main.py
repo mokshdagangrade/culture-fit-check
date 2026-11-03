@@ -6,6 +6,8 @@ tagline generation per state, thumbs up/down feedback, and a STUBBED
 email draft/approval flow. See README for what's real vs. still stubbed.
 """
 
+from models import ImageRequest, LogoUpload, ReferenceUpload
+from image_generation import generate_image, ImageGenerationError
 from datetime import datetime, timezone
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -55,6 +57,7 @@ SYSTEM_PROMPT = (
 def user_to_profile(user: dict) -> ProfileResponse:
     return ProfileResponse(
         email=user["email"],
+        logo_data=user.get("logo_data", ""),
         description=user.get("description"),
         target_audience=user.get("target_audience"),
         products=user.get("products"),
@@ -384,3 +387,58 @@ def chat(req: ChatRequest, user: dict = Depends(get_current_user)):
     history_collection.insert_one({"user_id": user["_id"], "project_id": req.project_id, "prompt": req.message,
         "response": response, "content_type": "chat", "created_at": datetime.now(timezone.utc)})
     return ChatResponse(response=response)
+
+
+# ---------- Hosted campaign images ----------
+
+@app.post("/generate-image")
+def generate_campaign_image(req: ImageRequest, user: dict = Depends(get_current_user)):
+    if req.project_id:
+        owned_project(req.project_id, user)
+    if not req.content.strip():
+        raise HTTPException(status_code=400, detail="Choose content before generating an image")
+    campaign_brief = req.campaign_brief
+    if not campaign_brief:
+        # Older saved candidates may predate per-draft brief storage. Recover only a matching
+        # draft belonging to this user and project, never the latest unrelated campaign.
+        source = history_collection.find_one(
+            {"user_id": user["_id"], "project_id": req.project_id,
+             "results": {"$elemMatch": {"text": req.content, "state": req.state}}},
+            sort=[("created_at", -1)],
+        )
+        campaign_brief = source.get("prompt", "") if source else ""
+    references = project_context(req.project_id, user)
+    project = owned_project(req.project_id, user) if req.project_id else {}
+    logo_data = project.get('logo', {}).get('data') or user.get('logo_data', '')
+    try:
+        result = generate_image(req.content, user.get("business_name", ""), req.state,
+                                brand_context={k: user.get(k) for k in ("products", "industry", "description", "tone", "target_audience") if user.get(k)},
+                                campaign_brief=campaign_brief, project_context=references, logo_data=logo_data, image_references=project.get('image_references', []))
+    except ImageGenerationError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    entry = {"user_id": user["_id"], "project_id": req.project_id, "content_type": "image", "prompt": req.content,
+             "state": req.state, **result, "prompt": req.content, "visual_prompt": result["prompt"], "created_at": datetime.now(timezone.utc)}
+    history_collection.insert_one(entry)
+    if req.project_id:
+        projects_collection.update_one({"_id": ObjectId(req.project_id), "user_id": user["_id"]}, {
+            "$push": {"images": {"data": result["image"], "name": "campaign-image.jpg", "text": req.content,
+                                  "state": req.state, "label": "Generated image"}},
+            "$set": {"updated_at": datetime.now(timezone.utc)}})
+    return {**result, "note": "Image saved to History and, when applicable, your project library. Review before publishing."}
+
+
+@app.put('/projects/{project_id}/logo')
+def set_project_logo(project_id: str, req: LogoUpload, user: dict = Depends(get_current_user)):
+    project = owned_project(project_id, user)
+    projects_collection.update_one({'_id': project['_id']}, {'$set': {
+        'logo': req.model_dump(), 'updated_at': datetime.now(timezone.utc)}})
+    return {'status': 'saved'}
+
+
+@app.put('/projects/{project_id}/image-references')
+def set_image_references(project_id: str, req: ReferenceUpload, user: dict = Depends(get_current_user)):
+    project = owned_project(project_id, user)
+    projects_collection.update_one({'_id': project['_id']}, {'$set': {
+        'image_references': [r.model_dump() for r in req.references],
+        'updated_at': datetime.now(timezone.utc)}})
+    return {'status': 'saved'}

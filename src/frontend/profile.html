@@ -35,6 +35,13 @@
         <input id="business_name" maxlength="80" />
         <div class="field-msg"></div>
       </div>
+      <div class="field">
+        <label for="brand-logo-file">Brand logo (optional)</label>
+        <input type="file" id="brand-logo-file" accept="image/png,image/jpeg,image/webp">
+        <p class="sub">PNG, JPEG or WebP, up to 1 MB. Transparent PNG works best. Used on generated images; a project logo takes priority.</p>
+        <img id="brand-logo-preview" alt="Your brand logo" hidden style="max-width:180px;max-height:100px;object-fit:contain">
+        <button type="button" class="btn-ghost" id="remove-brand-logo">Remove logo</button>
+      </div>
       <div class="row-2">
         <div class="field" data-field="industry">
           <label for="industry">Industry</label>

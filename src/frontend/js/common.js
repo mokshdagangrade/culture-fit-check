@@ -165,3 +165,39 @@ async function copyContent(button, contentElement) {
   } catch (err) { button.textContent = 'Select text to copy'; }
   setTimeout(() => { button.textContent = 'Copy'; }, 2500);
 }
+
+function downloadCampaignPoster(image, content, brand) {
+  const canvas=document.createElement('canvas');const ctx=canvas.getContext('2d');
+  canvas.width=1080;ctx.font='30px sans-serif';
+  const lines=[];
+  for (const paragraph of content.split(/\n/)) {
+    let line='';
+    for(const word of paragraph.split(/\s+/)) {
+      if(ctx.measureText(line + word).width > 940 && line){lines.push(line);line='';}
+      // Split unusually long tokens so URLs cannot overflow the poster.
+      for(const char of word){if(ctx.measureText(line+char).width>940){lines.push(line);line='';}line+=char;}
+      line+=' ';
+    }
+    lines.push(line.trimEnd());
+  }
+  canvas.height=1080+180+lines.length*42;
+  ctx.fillStyle='#171232';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(image,0,0,1080,1080);
+  ctx.fillStyle='#cbb7ff';ctx.font='bold 28px sans-serif';ctx.fillText(brand,70,1140,940);
+  ctx.fillStyle='#ffffff';ctx.font='30px sans-serif';
+  lines.forEach((line,i)=>ctx.fillText(line,70,1200+i*42));
+  const a=document.createElement('a');a.download='campaign-poster.png';a.href=canvas.toDataURL('image/png');a.click();
+}
+
+
+function readLogoFile(file) {
+  return new Promise((resolve, reject) => {
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 1_000_000) {
+      reject(new Error('Choose a PNG, JPEG or WebP image under 1 MB.')); return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Could not read the image.'));
+    reader.readAsDataURL(file);
+  });
+}

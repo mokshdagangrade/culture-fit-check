@@ -67,3 +67,39 @@ State generation now includes every supported nonempty successful source type: w
 
 
 Draft generation uses recent weather plus ranked, cleaned regional candidates from trends, news, calendar, events, social, sports, Wikipedia attention and YouTube. Only selected relevant hooks reach the generator; national scope and guessed geography remain explicit. Weather is optional. Load candidates with `python data/pipeline/load_candidates.py` after cleaning. See [training/README.md](training/README.md) for Qwen3-4B QLoRA training and the separate adapter generation endpoint.
+
+
+### Hosted campaign images
+
+Install backend dependencies with `pip install -r src/backend/requirements.txt`, then restart Uvicorn. No model weights are downloaded.
+
+For Cloudflare, configure these variables in `src/backend/.env`:
+
+```dotenv
+FLUX_KEY=your_cloudflare_api_token
+CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
+```
+
+`FLUX_KEY` must be a Cloudflare API token with Workers AI access, not a Black Forest Labs key. When set, it takes priority for images. Text generation retains its existing provider configuration. Requests without image references use FLUX.1 Schnell; requests with reference images or a logo use FLUX.2 Klein 4B. Both remain subject to provider access, billing/quota, and content-review requirements.
+
+If `FLUX_KEY` is absent, text-to-image generation uses `HF_TOKEN`, `HF_IMAGE_MODEL` (default `black-forest-labs/FLUX.1-schnell`), and `HF_IMAGE_PROVIDER` (default `auto`). Hosted Hugging Face inference requires account credits and Inference Providers permissions. The HF path does not accept visual references; the app reports an error rather than ignoring them.
+
+### Product photos, logos, and posters
+
+1. Open a project and generate written content from a campaign brief.
+2. In chat, choose **Product photo**, **Style reference**, or **Setting reference**, then **Add image**. Dropped images use the selected role. Listed references remain active for the project until removed.
+3. Optionally upload a logo in **Brand settings** or use **Add logo** in chat for a project override. The project logo takes priority.
+4. Click **Generate image / poster** beside the selected draft. The visual planner uses that draft, its original brief, brand details, and supported project text references/preferences. Scenes, colors, props, and style are derived per campaign rather than selected from brand-specific templates.
+5. The editing model receives the actual reference files, with instructions for each role and for coherent lighting, perspective, scale, and shadows. Uploaded logos are integrated by the editing model; the backend does not apply a fixed-position overlay.
+6. Review the result and download the image or **Download poster with content**. Images are saved in project libraries and History. Posters add the draft text beneath the visual in the browser and download locally.
+
+Up to three reference images plus one logo are supported. Each file must be PNG, JPEG, or WebP, no larger than 1 MB or 16 megapixels. Provider inputs are resized to fit within 511 × 511 pixels while preserving aspect ratio. Reference failures are surfaced rather than silently switching to text-only generation.
+
+Generated edits can alter products and logos, so exact fidelity is not guaranteed and review is required. Images uploaded during initial project creation are stored for download but must be added through chat controls to become visual references. Caption writing does not visually inspect uploaded images. Text references support `.txt`, `.md`, `.csv`, and `.json`; PDF/Office extraction is not implemented.
+
+Image regression checks:
+
+```bash
+cd src/backend
+python3 -m unittest test_image_generation -v
+```
