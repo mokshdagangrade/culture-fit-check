@@ -9,7 +9,7 @@ the problem is your key, your model name, or the app itself.
 
 from dotenv import load_dotenv
 
-import backend.llm as llm
+import llm as llm
 
 load_dotenv()
 

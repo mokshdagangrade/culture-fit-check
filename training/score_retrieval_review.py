@@ -33,7 +33,7 @@ USABLE_THRESHOLD = 2          # only "would use" counts as a positive
 
 
 def read_review(path: Path) -> list[dict]:
-    with open(path, newline="") as handle:
+    with open(path, newline="", encoding="utf-8-sig") as handle:
         rows = list(csv.DictReader(handle))
     labelled = [r for r in rows if (r.get("usable") or "").strip() != ""]
     for row in labelled:
