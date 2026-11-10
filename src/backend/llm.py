@@ -30,7 +30,7 @@ def providers():
     candidates = [
         ("Gemini", os.getenv("GEMINI_API_KEY"), "https://generativelanguage.googleapis.com/v1beta/openai/", os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")),
         ("Groq", os.getenv("GROQ_API_KEY") or os.getenv("LLM_API_KEY"), "https://api.groq.com/openai/v1", os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")),
-        ("Hugging Face", os.getenv("HF_TOKEN"), "https://router.huggingface.co/v1", os.getenv("HF_MODEL", "Qwen/Qwen3-4B-Instruct-2507")),
+        ("Hugging Face", os.getenv("HF_TOKEN"), "https://router.huggingface.co/v1", os.getenv("HF_MODEL", "Qwen/Qwen3-4B-Instruct-2507:nscale")),
     ]
     return [item for item in candidates if item[1]]
 
