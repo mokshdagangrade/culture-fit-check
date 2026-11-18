@@ -7,6 +7,9 @@ Datasets and APIs behind Wavelength's regional signal pipeline (`pipeline/`), an
 
 US, all 50 states, state-level where the source allows it. State documents use `state_code` and `date`; national documents use `country_code` and `date`.
 
+Retrieval logs missing pipeline coverage without labeling the market unsupported.
+The interleave fix preserves candidate ordering, quotas, and response fields.
+
 ## Geography
 
 Context falls back state → Census division → Census region → country when local data isn't available. 9 Census divisions, 4 Census regions — see `pipeline/us_states.py` for the full state→division→region mapping and `pipeline/validate.py` for the consistency check between them.

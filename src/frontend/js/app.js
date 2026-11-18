@@ -561,8 +561,25 @@ function renderCards() {
 }
 
 function ctxChips(context) {
-  if (!context || !Object.keys(context).length) return '<div class="ctx"><span>No recent state data available</span></div>';
-  return `<details class="source-context"><summary>Context supplied to AI · ${context.signal_selection?.selected?.length ?? 0} source(s)</summary><p>The AI uses relevant signals when they fit your brief; availability does not mean each signal appears in the draft.</p>${Object.entries(context).map(([name, signal]) => `<div><strong>${escapeHtml(name)}</strong>${signal.date ? ` · ${escapeHtml(signal.date)}` : ''}${signal.source ? ` · ${escapeHtml(signal.source)}` : ''}${signal.scope ? ` · ${escapeHtml(signal.scope)}` : ''}${signal.confidence ? ` · ${escapeHtml(signal.confidence)}` : ''}<pre>${escapeHtml(typeof signal === 'object' ? JSON.stringify(signal.data, null, 2) : String(signal))}</pre></div>`).join('')}</details>`;
+  const weather = context?.weather?.data && Object.keys(context.weather.data).length ? context.weather : null;
+  const selected = Array.isArray(context?.signal_selection?.selected)
+    ? context.signal_selection.selected.filter(signal => typeof signal?.text === 'string' && signal.text.trim()) : [];
+  const count = selected.length + (weather ? 1 : 0);
+  if (!count) return '<div class="ctx"><span>No recent state data available</span></div>';
+
+  const weatherHtml = weather ? `<div><strong>Weather</strong>${[weather.date, weather.source, weather.scope, weather.confidence].filter(Boolean).map(value => ` · ${escapeHtml(String(value))}`).join('')}<pre>${escapeHtml(JSON.stringify(weather.data, null, 2))}</pre></div>` : '';
+  const signalsHtml = selected.map(signal => {
+    const scope = signal.is_national || signal.geo_scope === 'national' ? 'US national, not state-specific' : signal.geo_scope;
+    const details = [
+      signal.date && `Snapshot: ${signal.date}`,
+      signal.event_date && `${signal.source === 'events' || signal.source === 'calendar' ? 'Event date' : 'Signal date'}: ${signal.event_date}`,
+      scope && `Scope: ${scope}`,
+      signal.geo_confidence && `Location confidence: ${signal.geo_confidence}`,
+      Number.isFinite(signal.score) && `Relevance score (AI): ${signal.score}/10`,
+    ].filter(Boolean).map(value => escapeHtml(value)).join(' · ');
+    return `<div><strong>${escapeHtml(signal.source || 'Signal')}</strong>${details ? `<div>${details}</div>` : ''}<p>${escapeHtml(signal.text)}</p>${signal.context ? `<p>${escapeHtml(signal.context)}</p>` : ''}${signal.why ? `<p>Why selected: ${escapeHtml(signal.why)}</p>` : ''}</div>`;
+  }).join('');
+  return `<details class="source-context"><summary>Context supplied to AI · ${count} context item(s)</summary><p>The AI uses relevant signals when they fit your brief; availability does not mean each signal appears in the draft.</p>${weatherHtml}${signalsHtml}</details>`;
 }
 
 function cardTemplate(state) {

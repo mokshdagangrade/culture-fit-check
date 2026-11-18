@@ -1,3 +1,6 @@
+import re
+
+
 def format_volume(volume) -> str | None:
     """Google reports a floor, not a count -- render it as the floor it is."""
     if not isinstance(volume, int) or volume <= 0:
@@ -165,7 +168,6 @@ Description:
 
     # A selected calendar hook should be visible for a holiday-themed campaign.
     # Do not infer launch timing or use unranked holidays after ranker failure.
-    import re
     if re.search(r"\bholidays?\b", user_message, re.IGNORECASE):
         holidays = [signal for signal in signals
                     if signal.get("source") == "calendar" and signal.get("text")

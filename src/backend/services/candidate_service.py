@@ -77,7 +77,7 @@ def get_candidate_pool(state: str, today: date | None = None) -> dict:
     """
     code = STATE_CODES_BY_NAME.get(state)
     if not code:
-        logger.warning("No candidate pool: unsupported state=%s", state)
+        logger.warning("No regional pipeline coverage for state=%s", state)
         return {"as_of": None, "stale_days": None, "pool": [], "refused": [], "counts": {}}
 
     today = today or datetime.now(timezone.utc).date()
@@ -161,6 +161,6 @@ def _interleave(pool: list) -> list:
             if rank < len(by_source[source]):
                 ordered.append(by_source[source][rank])
         rank += 1
-        if rank > max(len(v) for v in by_source.values()):
+        if rank >= max(len(v) for v in by_source.values()):
             break
     return ordered

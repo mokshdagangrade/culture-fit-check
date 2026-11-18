@@ -9,13 +9,16 @@ python3 -m venv venv
 source venv/bin/activate
 python -m pip install -r src/backend/requirements.txt
 python -m unittest discover -s training -p 'test_*.py' -v
-PYTHONPATH=src/backend python -c 'import fastapi, unittest; unittest.main(module=None)' test_backend test_generation test_projects -v
+PYTHONPATH=src/backend python -c 'import fastapi, unittest; unittest.main(module=None)' test_backend test_generation test_projects test_image_generation -v
 ```
 
 These tests mock model and database calls; they need no API keys, MongoDB server,
 GPU, or training datasets. FastAPI is loaded before the backend tests because
 their existing `sys.modules` patches otherwise reload its exception class.
 The older `test_api.py` targets retired endpoints and is not part of this command.
+
+Known baseline: 29 training tests pass; `test_training_masks_prompt_and_excludes_overlength`
+errors because its fake tokenizer is not callable. Unrelated to these backend fixes.
 
 Save the authenticated `/history` JSON response, then export candidate pairs:
 
