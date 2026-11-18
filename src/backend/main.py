@@ -417,7 +417,7 @@ def generate_campaign_image(req: ImageRequest, user: dict = Depends(get_current_
                                 campaign_brief=campaign_brief, project_context=references, logo_data=logo_data, image_references=project.get('image_references', []))
     except ImageGenerationError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-    entry = {"user_id": user["_id"], "project_id": req.project_id, "content_type": "image", "prompt": req.content,
+    entry = {"user_id": user["_id"], "project_id": req.project_id, "content_type": "image",
              "state": req.state, **result, "prompt": req.content, "visual_prompt": result["prompt"], "created_at": datetime.now(timezone.utc)}
     history_collection.insert_one(entry)
     if req.project_id:

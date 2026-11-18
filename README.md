@@ -41,9 +41,15 @@ Given a piece of short-form copy and a target region, Wavelength returns:
 
 ### Brand drafts and history
 
-The authenticated MongoDB user profile supplies company name, industry, tone, description, audience, products, and saved style examples. Settings supports all 50 US states and the existing three India markets. The composer generates captions, notifications, meme concepts, emails, and newsletters through the configured OpenAI-compatible provider (including Gemini). Recent account history supplies context for follow-up requests; the History page shows the latest 100 briefs and responses. Recent weather, trends, news, calendar, and events from the data pipeline’s `state_signals_daily` MongoDB collection now ground US drafts when available; email sending remains a stub. Empty or truncated model output is reported as a generation failure rather than displayed as a draft.
+The authenticated MongoDB user profile supplies company name, industry, tone, description, audience, products, and saved style examples. The project targets US states and regions; settings includes all 50 US states. The composer generates captions, notifications, meme concepts, emails, and newsletters through the configured OpenAI-compatible provider (including Gemini). Recent account history supplies context for follow-up requests; the History page shows the latest 100 briefs and responses. Recent weather, trends, news, calendar, and events from the data pipeline’s `state_signals_daily` MongoDB collection now ground US drafts when available; email sending remains a stub. Empty or truncated model output is reported as a generation failure rather than displayed as a draft.
 
-Offline regression checks: `cd src/backend && python3 -m unittest test_generation -v`.
+Offline backend checks (repo root; backend dependencies required):
+
+```sh
+PYTHONPATH=src/backend python -c 'import fastapi, unittest; unittest.main(module=None)' test_backend test_generation test_projects test_image_generation -v
+```
+
+No MongoDB server or API keys needed. See [training/README.md](training/README.md#ranker-review-export-and-regression-tests) for test limitations.
 
 
 ### Regional API context
@@ -51,6 +57,12 @@ Offline regression checks: `cd src/backend && python3 -m unittest test_generatio
 Run `data/pipeline/run_extract.py` to fetch source responses, then `data/pipeline/load_mongo.py` to load them. Configure the pipeline with the same MongoDB URI and database as the backend (`MONGODB_URI` / `MONGODB_DB_NAME`; legacy `MONGO_URI` is supported by the loader). The extractor needs the dependencies in `data/pipeline/requirements.txt` and source keys for keyed APIs. Generation reads the latest state document from today or yesterday, caps each list at three items, and skips failed, national, guessed, and mismatched state sources. Weather represents the capital city. Missing data does not block drafting. The API data must be refreshed by rerunning the pipeline; generation does not trigger extraction.
 
 Drafts and history render basic Markdown (bold, italic, headings, lists, inline code) with source HTML escaped. The run log has been removed from the app.
+
+Each draft's context panel shows available weather and selected signals, with
+dates, location scope/confidence, AI relevance scores, and selection reasons.
+The count excludes audit records. Scores measure campaign relevance, not cultural
+fit; supplied context is not proof it appears in the draft. Empty panels show
+“No recent state data available.”
 
 
 ### Hosted Hugging Face inference (current configuration)
@@ -96,6 +108,10 @@ If `FLUX_KEY` is absent, text-to-image generation uses `HF_TOKEN`, `HF_IMAGE_MOD
 Up to three reference images plus one logo are supported. Each file must be PNG, JPEG, or WebP, no larger than 1 MB or 16 megapixels. Provider inputs are resized to fit within 511 × 511 pixels while preserving aspect ratio. Reference failures are surfaced rather than silently switching to text-only generation.
 
 Generated edits can alter products and logos, so exact fidelity is not guaranteed and review is required. Images uploaded during initial project creation are stored for download but must be added through chat controls to become visual references. Caption writing does not visually inspect uploaded images. Text references support `.txt`, `.md`, `.csv`, and `.json`; PDF/Office extraction is not implemented.
+
+Image history stores the caption in `prompt` and visual instructions in
+`visual_prompt`; `/generate-image` returns visual instructions as `prompt`.
+These fields are unchanged; no database migration is needed.
 
 Image regression checks:
 
