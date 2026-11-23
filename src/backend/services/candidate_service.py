@@ -26,6 +26,7 @@ fill every slot.
 import logging
 import math
 from datetime import date, datetime, timedelta, timezone
+import os
 
 from pymongo.errors import PyMongoError
 
@@ -49,7 +50,7 @@ SOURCE_QUOTA = {
 }
 
 POOL_SIZE = 40          # hard cap on candidates handed to the ranker
-LOOKBACK_DAYS = 2       # how far back to accept a snapshot before calling it stale
+LOOKBACK_DAYS = int(os.getenv("SIGNAL_LOOKBACK_DAYS", "2"))      # how far back to accept a snapshot before calling it stale
 
 
 def _fields(doc: dict) -> dict:

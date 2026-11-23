@@ -1,0 +1,8 @@
+# Serving environment. Install in an environment of its OWN -- vLLM pins its
+# own torch build and will overwrite the one training/requirements-train.txt
+# installs, breaking a working training setup.
+#
+#   conda create -n wavelength-serve python=3.12 -y
+#   conda activate wavelength-serve
+#   pip install -r serving/requirements-serve.txt
+vllm>=0.11
