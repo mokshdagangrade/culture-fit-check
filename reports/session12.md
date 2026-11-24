@@ -25,7 +25,9 @@ north_star:
     Current work improves visual fidelity, date handling, preset-brand testing
     and visibility into regional grounding. Fresh raw signals are available,
     but cleaned candidates still need refreshing. No new human-reviewed
-    retrieval or ranking quality measurement is claimed this session.
+    retrieval or ranking quality measurement is claimed this session. A local
+    serving endpoint for the ranker now exists, so this measurement is
+    unblocked for the next session rather than solved in this one.
 ---
 
 
@@ -42,6 +44,9 @@ north_star:
 - **Reviewed cultural-adaptation evaluation research:** Read "Translating Across Cultures," which evaluates English-to-Indian-audience adaptation for localization, naturalness, offensiveness, content preservation and stereotyping, and compares an LLM judge with human raters. Findings highlighted incorrect cultural substitutions and trade-offs between localization and naturalness.
 - **Proposed rubric extensions:** Added naturalness, over-localization and stereotyping checks to the proposed evaluation design, while retaining human-labelled factual accuracy rather than relying only on automated judging.
 - **Scoped a three-tier fallback:** Designed state-grounded, Census-region/division-grounded, and explicitly labelled brand-only drafts for cases with weak local signals. The stitched schema already includes Census region and division fields; tier selection and evidence display remain design work.
+- **Served the fine-tuned adapter end to end:** Trained the brand LoRA on a UMIACS Nexus A6000 and verified the whole serving path — one vLLM process exposing the base model for signal ranking and the adapter for draft generation, reached from a laptop through an SSH tunnel. Added a `serving/` directory with a Slurm job script, a tunnel helper that reads the allocated node from Slurm rather than relying on a hand-typed hostname, and a runbook documenting each failure mode encountered.
+- **Repaired the provider configuration:** Hugging Face moved language-model routing to OpenRouter on November 16, after which provider suffixes no longer resolve and custom provider keys no longer work for language models. The repository's documented default model and base URL had therefore stopped working for every developer; moved the default to a reachable provider and recorded how to check the router's current model list.
+- **Made snapshot staleness explicit rather than fatal:** Added a `SIGNAL_LOOKBACK_DAYS` override so a demo can run against an older snapshot while the audit trail still reports the real `stale_days`, instead of quietly widening the freshness default for everyone.
 
 
 ## User evidence
@@ -53,6 +58,8 @@ north_star:
 - The context-panel review improved visibility into selected evidence and exposed missing-data/empty-state issues. These checks support inspection, but do not establish improved ranking quality or independent user-study results.
 - The reviewed paper provides external evaluation evidence rather than a new user study for this application. Its findings motivate checks for unnatural wording, over-localization and stereotyped or incorrect cultural substitutions.
 - The proposed fallback design groups states by Census region or division and flags meaningful outliers, with explicit labels so users can distinguish state-level evidence, broader regional evidence and brand-only copy.
+- Running the application against the local endpoint reproduced the weather-only grounding independently: the generation window covered November 21–23 while `signal_candidates` held only October 20 rows, so every supported state returned an empty pool and drafts were produced without regional hooks.
+- States outside pipeline coverage entered during testing (Maharashtra, Delhi, Tamil Nadu) were refused by state coverage rather than failing. That is correct behaviour, but the brand settings picker still offers regions the pipeline cannot ground, which a tester cannot distinguish from a broken feature.
 
 
 
@@ -67,6 +74,7 @@ north_star:
 - Verified calendar-date correction, caption-derived poster text, visual preservation in poster rendering, and persistence of both image and poster in project/History records using mocked integration checks.
 - Validated all three fictional brand fixtures and repeat-import behavior. The importer passed dry-run validation; importing into the database is an optional step.
 - Backend/image regression checks and frontend rendering assertions covered compatibility, missing data and selected-context rendering. No new aggregate test count was provided for this update.
+- A greedy health check passed against a server that failed on every real draft. `check_llm.py` calls with temperature 0, which takes a different sampler path from generation, so the configuration check reported success while the engine died on the first actual request. Verification now also issues a non-zero-temperature request against the adapter.
 
 
 ### Retrieval and training
@@ -75,6 +83,8 @@ north_star:
 - MongoDB inspection found **50 raw state snapshots dated November 24, 2026**, while `signal_candidates` contained **1,295 rows dated October 20**. These candidates fall outside the generation freshness window, explaining the weather-only context.
 - Fresh raw extraction is available; regenerating cleaned tables and loading fresh candidates are still required. No new precision@3, recall or visual-quality score is claimed.
 - Work is underway to investigate ranking prompts, relevance thresholds and source balance, and to prepare a comparison of base and fine-tuned generation on unseen brands. Adapter-serving integration remains ongoing rather than completed.
+- **First completed fine-tuning run, recorded for traceability:** RTX A6000, bf16, effective batch 16, 865 seconds for three epochs over 809 training examples (splits 809/98/97). Validation loss was 1.9353, **1.8994** and 1.9225 across the three epochs, so the epoch-2 checkpoint is the adapter in use and three epochs overfits a dataset this size. Validation loss is not evidence of better marketing copy.
+- **Corrected a training/serving prompt mismatch:** Training turns are now built with the same prompt builder the backend serves with, which raises the median prompt from 145 to 529 tokens. The earlier flat format taught the adapter to continue a string it is never shown at inference.
 - **External research, not application metrics:** The reviewed paper reports LLM-judge agreement with human raters of approximately 0.6 Kendall’s tau for naturalness and localization, but 0.39 for content preservation. These findings support human review of factual accuracy; they do not measure this application’s performance.
 
 
@@ -86,6 +96,8 @@ north_star:
 - Loading raw signals alone did not refresh cleaned candidates used by the ranker. Documented the missing table conversion, cleaning and candidate-loading steps.
 - The preset importer initially failed in the user's Conda environment because `email-validator` was missing; provided environment-specific dependency installation commands.
 - Identified missing-field/empty-state inconsistencies and a candidate-interleaving boundary issue. Multi-state failure recovery and retrieval/filtering weaknesses remain under investigation.
+- Serving failed three times before working: a missing CUDA toolkit at engine startup, the FlashInfer sampler compiling on the first temperature-above-zero request and killing the engine irrecoverably, and a LoRA path pointing at merged weights instead of an adapter directory. All three are now handled in the job script and written down, but each was diagnosable only from the server log rather than from the application's error.
+- Ranker quality is still unmeasured. Every scored run of the 290 labelled retrieval rows so far lacked a reachable provider, so precision@3, recall of usable signals and top-1 agreement remain blank. A local endpoint now exists, which unblocks the measurement without having produced it.
 
 
 ## Challenges / blockers
@@ -98,6 +110,8 @@ north_star:
 - Brand settings remain account-wide. When switching demo brands, testers should use a fresh project so existing project logos and visual references do not contaminate the test.
 - The extended rubric needs scoring anchors that reviewers can apply consistently. Automated cultural-adaptation judging is insufficient on its own for factual accuracy and content preservation.
 - Region/division fallback needs explicit tier labels, evidence display and rules for when broader signals are appropriate. Existing geographic fields support the design, but do not establish that a signal applies to every state in a region.
+- The tunnel is a demonstration mechanism, not a deployment. Nothing generates when the Slurm job is not running or the VPN is down, and the compute node changes with every allocation, so a hosted provider must stay configured for everyone else's local work.
+- Two parts of the evaluation surface have no tests. `services/trend_service.py` holds the safety gate, last measured at 66.7% precision with `tribute` and `memorial` causing twelve false refusals and several violent and political terms missed entirely. `train.encode_example` is covered by a test that errors on a stale fake tokenizer, despite that function having failed twice during the first GPU run.
 
 
 ## Next week's goal
@@ -111,6 +125,8 @@ north_star:
 - Write the extended rubric with scoring anchors for naturalness, over-localization and stereotyping so two reviewers can apply it consistently.
 - Define the labels and context-panel evidence shown at each fallback tier, including when region-level evidence may support a draft.
 - Draft the demo narrative around one grounded draft, one fallback draft and an honest explanation of current limitations.
+- Measure precision@3, recall of usable signals and top-1 agreement against the 290 labelled rows using the local endpoint, and have a second reviewer label the overlap slice so those figures have a Cohen's κ ceiling to be read against.
+- Run the three-way generation comparison — base zero-shot, base with few-shot retrieval, and the adapter — on held-out brands, and fix the two known safety-gate defects with before-and-after numbers on a freshly loaded snapshot.
 
 
 ## Individual contributions
@@ -118,7 +134,7 @@ north_star:
 
 - **Stuti Patel (Product):** Researched how cultural adaptation is evaluated and used the findings to propose rubric extensions. Scoped a three-tier fallback for drafts with weak local signals, including how each tier is labelled to users. Current work focuses on a reviewer-ready rubric, fallback evidence displays and the demo narrative.
 - **Riya Puri (Engineering):** Fixed regional-context visibility and backend inconsistencies, validated compatibility, and investigated failure recovery across multi-state generation. Current work focuses on improving retrieval and ranking quality, integrating the fine-tuned generator, and adding recovery capabilities that make the application more reliable for the final deliverables.
-- **Vyom Agarwal (Data&Eval):** Current-week contribution update pending.
+- **Vyom Agarwal (Data&Eval):** Fine-tuned the brand adapter on a UMIACS Nexus GPU and proved the serving path end to end, with the base model answering ranking requests and the adapter answering generation requests from a single process reached over an SSH tunnel. Diagnosed and documented the three serving failures, the Hugging Face routing change that had silently broken the repository's default provider configuration, and the snapshot-freshness gap that leaves every state ungrounded. Added the serving runbook and job scripts, recorded the measured training run and the training/serving prompt correction, and stated the four unfinished evaluation items explicitly. Current work focuses on producing the first ranker measurement from the 290 labelled rows, obtaining a second reviewer's labels for agreement, and comparing base against fine-tuned generation on unseen brands.
 - **Mokshda Gangrade (Users&Research):** Improved product-reference prompts and caption-derived poster text, added year-aware date checks, and diagnosed weather-only grounding through MongoDB freshness inspection. Created three detailed fictional brand presets, a validated catalog importer, and website controls to preview, apply and edit their facts. Added regression checks and documented preset setup and fresh-candidate loading.
 
 
@@ -127,4 +143,4 @@ north_star:
 
 - No formal canvas changes recorded. Work focused on trustworthy campaign visuals, inspectable regional grounding, repeatable brand testing and reliability for final evaluation.
 - Product fidelity, useful fresh signals and consistent multi-state generation remain risks; current improvements do not establish higher retrieval or ranking accuracy.
-
+- Serving a self-hosted tuned model is now demonstrated but depends on cluster access, so a hosted provider remains the configured default and the fine-tuned path stays opt-in until it has been compared against the base model.
