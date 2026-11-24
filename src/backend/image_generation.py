@@ -251,7 +251,7 @@ def reference_instructions(references):
     if not references:
         return ''
     instructions = {
-        'product': 'use this actual product as a hero subject, preserving its shape, details, materials and colors',
+        'product': 'use this actual product as a hero subject; preserve its silhouette, proportions, structure, parts, materials, colors and existing markings; keep its supplied orientation; do not bend, duplicate, fuse, stretch, add or remove parts',
         'style': 'use its palette, mood and visual treatment; do not copy unrelated objects or text',
         'setting': 'use its environment and spatial cues as the setting',
         'logo': 'use only this supplied logo as the brand mark, preserve its geometry and colors, and integrate it into clear space with balanced scale',
@@ -259,7 +259,7 @@ def reference_instructions(references):
     result = ' Compose one unified campaign image from ALL supplied references. '
     for i, ref in enumerate(references):
         result += f"Image {i}: {instructions[ref['role']]}. "
-    return result + 'Match perspective, illumination, contact shadows and scale; avoid pasted-on cutouts or unrelated panels.'
+    return result + 'Adapt the environment, camera and shadows to the supplied product geometry, not the product to a new pose. Keep one intact instance per supplied product unless the brief asks for multiples. Do not copy product markings onto unrelated props. Match lighting, contact shadows and scale; no pasted-on cutouts or separate panels.'
 
 
 def prepare_reference(data):

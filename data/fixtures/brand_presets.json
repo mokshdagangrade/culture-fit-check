@@ -1,0 +1,416 @@
+{
+  "schema_version": 1,
+  "notice": "All brands, prices, policies and product facts are fictional testing fixtures, not real companies or offers. Domains use .example. No logos or product photos are included. Test briefs are examples, not active campaign facts.",
+  "brands": [
+    {
+      "id": "morrow-motion",
+      "label": "Morrow Motion — footwear & activewear",
+      "summary": "An energetic online sneaker and activewear brand for everyday movement.",
+      "profile": {
+        "business_name": "Morrow Motion (Demo)",
+        "industry": "Footwear and activewear",
+        "tone": "Energetic, inclusive, practical; confident without hype",
+        "description": "Fictional direct-to-consumer footwear and activewear brand built around everyday movement, from a morning commute to a casual gym session. The brand emphasizes versatile styling and straightforward product information. Online-only test business; no physical store locations or real customer endorsements.",
+        "target_audience": "US adults aged 20–40 who combine work, casual fitness and city life. Budget-conscious shoppers seeking versatile outfits. Inclusive of different fitness levels; avoid athletic-performance promises or body-shaming language.",
+        "products": "Dayline low-top lifestyle sneaker: $89 USD, off-white and slate, synthetic upper, rubber outsole, US sizes 5–12. Form crew tee: $28 USD, cotton blend, charcoal and cream, sizes XS–XXL. Carry bottle: $22 USD, 600 mL stainless steel, navy; do not claim thermal performance.",
+        "states": [
+          "California",
+          "New York",
+          "Texas"
+        ],
+        "past_taglines": [
+          "Made for the plans between your plans.",
+          "Your pace. Your everyday pair.",
+          "Keep the outfit simple. Keep moving."
+        ],
+        "brand_details": {
+          "identity": {
+            "fictional": true,
+            "positioning": "Versatile everyday footwear and apparel at accessible mid-range prices.",
+            "values": [
+              "Everyday practicality",
+              "Inclusive movement",
+              "Clear product information"
+            ]
+          },
+          "catalog": [
+            {
+              "sku": "MM-DAYLINE",
+              "name": "Dayline",
+              "category": "Lifestyle sneaker",
+              "price": 89,
+              "currency": "USD",
+              "colors": [
+                "off-white",
+                "slate"
+              ],
+              "materials": {
+                "upper": "synthetic",
+                "outsole": "rubber"
+              },
+              "sizes": "US 5–12",
+              "approved_claims": [
+                "Low-top silhouette",
+                "Designed for everyday styling"
+              ],
+              "unverified_claims": [
+                "Running performance",
+                "Waterproofing",
+                "Orthopedic support",
+                "Recycled content"
+              ]
+            },
+            {
+              "sku": "MM-FORM",
+              "name": "Form crew tee",
+              "price": 28,
+              "currency": "USD",
+              "materials": "Cotton blend",
+              "colors": [
+                "charcoal",
+                "cream"
+              ],
+              "sizes": "XS–XXL"
+            },
+            {
+              "sku": "MM-CARRY",
+              "name": "Carry bottle",
+              "price": 22,
+              "currency": "USD",
+              "capacity_ml": 600,
+              "materials": "Stainless steel",
+              "colors": [
+                "navy"
+              ]
+            }
+          ],
+          "visual_identity": {
+            "palette": [
+              {
+                "name": "Ink navy",
+                "hex": "#152638"
+              },
+              {
+                "name": "Warm cream",
+                "hex": "#F7F3E8"
+              },
+              {
+                "name": "Electric coral",
+                "hex": "#FF6655"
+              }
+            ],
+            "style": "Clean editorial product photography with realistic proportions, restrained props and balanced negative space.",
+            "typography": "Bold, legible sans serif; brief headlines.",
+            "logo": "No approved logo supplied. Do not invent logos or copy marks from real sportswear brands.",
+            "product_fidelity": "Uploaded product references define the silhouette, colors, materials and markings; preserve them."
+          },
+          "voice": {
+            "do": [
+              "Use short sentences and specific product facts",
+              "Invite participation without pressure",
+              "Keep fitness references accessible"
+            ],
+            "avoid": [
+              "Elite-athlete claims",
+              "Body transformation promises",
+              "Invented celebrity endorsements",
+              "Regional stereotypes"
+            ],
+            "emoji_policy": "At most two relevant emoji in a caption; none in formal email subject lines."
+          },
+          "commerce": {
+            "channel": "Online-only fictional storefront",
+            "website": "https://morrow-motion.example",
+            "shipping": "US orders; fictional flat shipping fee $5; no guaranteed delivery window.",
+            "returns": "Unused items within 30 days with proof of purchase; fictional policy for testing.",
+            "active_promotions": [],
+            "promotion_rule": "No discount is active by default. Use a discount, storewide claim or promotion date only when explicitly supplied in the current brief."
+          },
+          "market_guidance": {
+            "California": "Everyday outdoor/city context when supported by current signals; do not assume sunny weather.",
+            "New York": "Commuting and versatile styling, without claiming suitability for severe weather.",
+            "Texas": "Everyday movement; do not infer local events or customer demographics."
+          },
+          "content_rules": [
+            "Do not add a different brand logo to products or props",
+            "Never change the supplied product geometry",
+            "Check current-year event dates",
+            "No invented stock urgency, discounts or delivery promises"
+          ]
+        }
+      },
+      "suggested_test_briefs": [
+        "Write a caption introducing Dayline for everyday commuting. Do not include discounts.",
+        "Create a Black Friday caption for Dayline. For this fictional campaign only, the approved offer is up to 25% off selected sneakers. Use the verified current-year Black Friday date and do not claim storewide savings.",
+        "Create an email introducing the Form crew tee using only the catalog facts."
+      ],
+      "is_fictional": true
+    },
+    {
+      "id": "juniper-cup",
+      "label": "Juniper Cup — coffee & pantry",
+      "summary": "A welcoming online coffee and brewing-accessory shop with a calm editorial voice.",
+      "profile": {
+        "business_name": "Juniper Cup (Demo)",
+        "industry": "Specialty coffee and brewing accessories",
+        "tone": "Warm, conversational, thoughtful; never pretentious",
+        "description": "Fictional online coffee shop offering approachable coffee blends and simple home-brewing accessories. Focuses on enjoyable daily rituals and clear preparation guidance. It has no physical café, known awards or certified sustainability credentials.",
+        "target_audience": "US adults aged 25–50 who brew coffee at home, including beginners and casual enthusiasts. Customers value a comforting ritual and approachable explanations rather than technical jargon. Do not make assumptions about work schedules, culture or caffeine needs.",
+        "products": "Morning Table medium-roast blend: 250 g, $16 USD, whole bean or ground; supplied tasting notes cocoa and toasted almond. Slow Sunday decaf blend: 250 g, $18 USD, whole bean; tasting notes caramel and dried fruit. Everyday ceramic mug: 300 mL, $20 USD, oat and forest green; not claimed dishwasher-safe.",
+        "states": [
+          "Washington",
+          "Oregon",
+          "Massachusetts"
+        ],
+        "past_taglines": [
+          "A little pause, freshly brewed.",
+          "Good mornings do not need complicated coffee.",
+          "Make room for your everyday ritual."
+        ],
+        "brand_details": {
+          "identity": {
+            "fictional": true,
+            "positioning": "Approachable coffee and practical accessories for home-brewing rituals.",
+            "values": [
+              "Welcoming guidance",
+              "Simple routines",
+              "Honest descriptions"
+            ]
+          },
+          "catalog": [
+            {
+              "sku": "JC-MORNING",
+              "name": "Morning Table",
+              "price": 16,
+              "currency": "USD",
+              "size_g": 250,
+              "roast": "Medium",
+              "formats": [
+                "Whole bean",
+                "Ground"
+              ],
+              "supplied_tasting_notes": [
+                "Cocoa",
+                "Toasted almond"
+              ],
+              "note": "Tasting notes describe flavor impressions, not added ingredients or allergen certification."
+            },
+            {
+              "sku": "JC-SUNDAY",
+              "name": "Slow Sunday",
+              "price": 18,
+              "currency": "USD",
+              "size_g": 250,
+              "type": "Decaf coffee",
+              "formats": [
+                "Whole bean"
+              ],
+              "supplied_tasting_notes": [
+                "Caramel",
+                "Dried fruit"
+              ],
+              "note": "Decaf does not establish zero caffeine; do not invent a decaffeination method."
+            },
+            {
+              "sku": "JC-MUG",
+              "name": "Everyday mug",
+              "price": 20,
+              "currency": "USD",
+              "capacity_ml": 300,
+              "materials": "Ceramic",
+              "colors": [
+                "oat",
+                "forest green"
+              ]
+            }
+          ],
+          "visual_identity": {
+            "palette": [
+              {
+                "name": "Forest",
+                "hex": "#24473D"
+              },
+              {
+                "name": "Oat",
+                "hex": "#EFE5D3"
+              },
+              {
+                "name": "Terracotta",
+                "hex": "#B96D50"
+              }
+            ],
+            "style": "Natural window light, tactile surfaces, authentic coffee preparation and uncluttered tabletop scenes.",
+            "typography": "Readable serif headlines with clean supporting text.",
+            "logo": "No approved logo supplied. Use an uploaded logo only.",
+            "product_fidelity": "Keep packaging and mugs consistent with uploaded references; never add another coffee chain’s marks."
+          },
+          "voice": {
+            "do": [
+              "Explain brewing simply",
+              "Use sensory language only from supplied tasting notes",
+              "Invite a calm moment"
+            ],
+            "avoid": [
+              "Health and productivity promises",
+              "Coffee snobbery",
+              "Unverified origin or farmer stories",
+              "Assuming rain in the Pacific Northwest"
+            ],
+            "emoji_policy": "One optional coffee or nature emoji; keep email copy restrained."
+          },
+          "commerce": {
+            "channel": "Online retail only; no café visits or pickup",
+            "website": "https://juniper-cup.example",
+            "shipping": "US delivery; fictional flat fee $4; no verified arrival times.",
+            "returns": "Contact support for damaged or incorrect orders; no blanket food-return promise.",
+            "active_promotions": [],
+            "promotion_rule": "No offer is active unless the current campaign brief explicitly approves it."
+          },
+          "market_guidance": {
+            "Washington": "Use actual retrieved context rather than assuming rain.",
+            "Oregon": "Avoid unsupported local sourcing claims.",
+            "Massachusetts": "Use current context without inventing neighborhood connections."
+          },
+          "content_rules": [
+            "No organic, fair-trade or carbon-neutral claims without evidence",
+            "Do not invent health benefits or allergen guarantees",
+            "No in-store promotions for this online-only business",
+            "Do not infer ingredients from tasting notes"
+          ]
+        }
+      },
+      "suggested_test_briefs": [
+        "Write a beginner-friendly caption introducing Morning Table with no promotion.",
+        "Create a newsletter about a quiet home-brewing ritual using the coffee and mug catalog.",
+        "Write a holiday gifting caption; do not invent a shipping cutoff or discount."
+      ],
+      "is_fictional": true
+    },
+    {
+      "id": "luma-grove",
+      "label": "Luma Grove — everyday skincare",
+      "summary": "A minimal, factual skincare brand for simple daily routines.",
+      "profile": {
+        "business_name": "Luma Grove (Demo)",
+        "industry": "Cosmetic skincare",
+        "tone": "Calm, reassuring, clear and factual; no medical language",
+        "description": "Fictional direct-to-consumer cosmetic skincare brand offering a short, approachable daily routine. Communicates product format, texture and use without promises to treat medical conditions. No clinical studies, certifications, efficacy percentages or dermatologist endorsements are supplied.",
+        "target_audience": "US adults aged 22–45 who prefer a small, understandable skincare routine. Inclusive across genders and skin appearances. Do not diagnose skin conditions or exploit insecurities; suitability for specific sensitivities is unverified.",
+        "products": "Soft Start gel cleanser: 150 mL, $18 USD, rinse-off gel in a sage bottle. Daily Layer moisturizer: 50 mL, $24 USD, lightweight cream in an ivory jar. Travel Pair: 30 mL cleanser plus 15 mL moisturizer, $16 USD. No sunscreen, SPF rating, medical benefit or full ingredient list is provided.",
+        "states": [
+          "Florida",
+          "Colorado",
+          "Illinois"
+        ],
+        "past_taglines": [
+          "A simpler start to your daily routine.",
+          "Less guesswork. A little more care.",
+          "Everyday care, clearly explained."
+        ],
+        "brand_details": {
+          "identity": {
+            "fictional": true,
+            "positioning": "A concise cosmetic skincare routine with transparent, limited claims.",
+            "values": [
+              "Clarity",
+              "Inclusive care",
+              "Practical routines"
+            ]
+          },
+          "catalog": [
+            {
+              "sku": "LG-CLEANSE",
+              "name": "Soft Start",
+              "type": "Rinse-off gel cleanser",
+              "volume_ml": 150,
+              "price": 18,
+              "currency": "USD",
+              "packaging": "Sage bottle",
+              "approved_description": "Gel-format cleanser; no ingredient or treatment claims supplied."
+            },
+            {
+              "sku": "LG-MOISTURE",
+              "name": "Daily Layer",
+              "type": "Moisturizer",
+              "volume_ml": 50,
+              "price": 24,
+              "currency": "USD",
+              "packaging": "Ivory jar",
+              "approved_description": "Lightweight cream texture; no measured efficacy claims supplied."
+            },
+            {
+              "sku": "LG-TRAVEL",
+              "name": "Travel Pair",
+              "price": 16,
+              "currency": "USD",
+              "contents": [
+                "30 mL Soft Start",
+                "15 mL Daily Layer"
+              ],
+              "note": "Do not invent airline, leakproof or travel-compliance certifications."
+            }
+          ],
+          "visual_identity": {
+            "palette": [
+              {
+                "name": "Sage",
+                "hex": "#A7B7A1"
+              },
+              {
+                "name": "Ivory",
+                "hex": "#F6F1E7"
+              },
+              {
+                "name": "Charcoal",
+                "hex": "#333B39"
+              }
+            ],
+            "style": "Soft diffused light, clean product surfaces, restrained botanical accents only as decoration; no implied ingredients.",
+            "typography": "Clear sans serif with generous spacing.",
+            "logo": "No approved logo supplied; never invent seals or certification badges.",
+            "product_fidelity": "Preserve the uploaded bottle or jar shape, cap, label and color."
+          },
+          "voice": {
+            "do": [
+              "Explain a simple routine",
+              "Use factual texture and format descriptions",
+              "Keep calls to action optional and welcoming"
+            ],
+            "avoid": [
+              "Before-and-after promises",
+              "Anti-aging or whitening guarantees",
+              "Medical diagnoses",
+              "Fear-based urgency"
+            ],
+            "emoji_policy": "Usually no emoji; one subtle nature emoji only when suitable."
+          },
+          "commerce": {
+            "channel": "Online US cosmetic retail",
+            "website": "https://luma-grove.example",
+            "shipping": "Fictional flat fee $5; delivery dates not supplied.",
+            "returns": "Unopened products within 14 days in this fictional test policy.",
+            "active_promotions": [],
+            "promotion_rule": "Only a promotion explicitly approved in the current brief may be advertised."
+          },
+          "market_guidance": {
+            "Florida": "Do not imply SPF, UV protection or humidity resistance.",
+            "Colorado": "Do not imply clinical treatment for dryness or altitude effects.",
+            "Illinois": "Keep seasonal references grounded in current signals."
+          },
+          "content_rules": [
+            "No SPF or sunscreen claims",
+            "No acne, eczema or other treatment claims",
+            "No invented ingredients, certifications or clinical evidence",
+            "Do not fabricate reviews or before-and-after imagery"
+          ]
+        }
+      },
+      "suggested_test_briefs": [
+        "Introduce the Soft Start cleanser in a concise caption without health claims.",
+        "Create an email explaining the two-product daily routine using only approved catalog facts.",
+        "Write a seasonal caption for Daily Layer without claiming clinical benefits or inventing a discount."
+      ],
+      "is_fictional": true
+    }
+  ]
+}
