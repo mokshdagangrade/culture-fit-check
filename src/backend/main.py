@@ -8,11 +8,13 @@ email draft/approval flow. See README for what's real vs. still stubbed.
 
 from models import ImageRequest, LogoUpload, ReferenceUpload
 from image_generation import generate_image, ImageGenerationError
+from campaign_calendar import calendar_instructions, correct_campaign_dates, campaign_dates
+from poster import render_campaign_poster
 from datetime import datetime, timezone
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import llm
-from db import users_collection, feedback_collection, history_collection, projects_collection
+from db import users_collection, feedback_collection, history_collection, projects_collection, brand_presets_collection
 from bson import ObjectId
 from models import ProjectCreate, ProjectUpdate
 from concurrent.futures import ThreadPoolExecutor
@@ -58,6 +60,7 @@ def user_to_profile(user: dict) -> ProfileResponse:
     return ProfileResponse(
         email=user["email"],
         logo_data=user.get("logo_data", ""),
+        brand_details=user.get("brand_details", {}),
         description=user.get("description"),
         target_audience=user.get("target_audience"),
         products=user.get("products"),
@@ -124,6 +127,19 @@ def update_me(update: ProfileUpdate, user: dict = Depends(get_current_user)):
         users_collection.update_one({"_id": user["_id"]}, {"$set": changes})
     updated = users_collection.find_one({"_id": user["_id"]})
     return user_to_profile(updated)
+
+
+# ---------- Fictional demo brand catalog ----------
+
+@app.get('/brand-presets')
+def list_brand_presets(user: dict = Depends(get_current_user)):
+    from pymongo.errors import PyMongoError
+    try:
+        rows = brand_presets_collection.find({'is_fictional': True}, {'_id': 0, 'preset_id': 1,
+            'label': 1, 'summary': 1, 'profile': 1, 'suggested_test_briefs': 1, 'is_fictional': 1}).sort('label', 1)
+        return {'presets': list(rows)}
+    except PyMongoError:
+        raise HTTPException(status_code=503, detail='Demo brands are temporarily unavailable') from None
 
 
 # ---------- Projects ----------
@@ -278,8 +294,11 @@ def generate_for_state(user, content_type, prompt, region, previous):
     )
     brief += "\n\nCURRENT USER BRIEF — fulfill this request: " + prompt
     brief += user.get("project_context", "")
+    brief += "\n\n" + calendar_instructions(prompt)
     text = llm.call_generation(brief, system=system, max_tokens=2048 if content_type in ("email", "newsletter") else 1024)
+    text = correct_campaign_dates(text, prompt)
     grounding = {
+        "calendar_facts": campaign_dates(prompt + " " + text),
         **context,
         "trend_selection": {"used": usable_trends, "dropped": dropped_trends},
         # Machine judgments remain separate from human relevance labels.
@@ -294,6 +313,9 @@ def generate_for_state(user, content_type, prompt, region, previous):
             "selected": selected,
             "refused": candidates["refused"],
             "method": rank_method,
+            "availability": ("no-fresh-candidates" if not candidates["pool"] else
+                             "ranking-unavailable" if rank_method.startswith("fallback:") else
+                             "selected" if selected else "no-relevant-signals"),
         },
     }
     return TaglineCandidate(state=region, text=text, grounding_context=grounding)
@@ -404,28 +426,38 @@ def generate_campaign_image(req: ImageRequest, user: dict = Depends(get_current_
         # draft belonging to this user and project, never the latest unrelated campaign.
         source = history_collection.find_one(
             {"user_id": user["_id"], "project_id": req.project_id,
-             "results": {"$elemMatch": {"text": req.content, "state": req.state}}},
+             "results": {"$elemMatch": {"text": content, "state": req.state}}},
             sort=[("created_at", -1)],
         )
         campaign_brief = source.get("prompt", "") if source else ""
+    content = correct_campaign_dates(req.content, campaign_brief)
     references = project_context(req.project_id, user)
     project = owned_project(req.project_id, user) if req.project_id else {}
     logo_data = project.get('logo', {}).get('data') or user.get('logo_data', '')
     try:
-        result = generate_image(req.content, user.get("business_name", ""), req.state,
-                                brand_context={k: user.get(k) for k in ("products", "industry", "description", "tone", "target_audience") if user.get(k)},
+        result = generate_image(content, user.get("business_name", ""), req.state,
+                                brand_context={k: user.get(k) for k in ("products", "industry", "description", "tone", "target_audience", "brand_details") if user.get(k)},
                                 campaign_brief=campaign_brief, project_context=references, logo_data=logo_data, image_references=project.get('image_references', []))
     except ImageGenerationError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    try:
+        result.update(render_campaign_poster(result['image'], content, user.get('business_name', '')))
+    except Exception:
+        raise HTTPException(status_code=502, detail='The visual was generated but poster text could not be rendered. Please retry.') from None
+    result['caption'] = content
     entry = {"user_id": user["_id"], "project_id": req.project_id, "content_type": "image",
-             "state": req.state, **result, "prompt": req.content, "visual_prompt": result["prompt"], "created_at": datetime.now(timezone.utc)}
+             "state": req.state, **result, "prompt": content, "visual_prompt": result["prompt"], "created_at": datetime.now(timezone.utc)}
     history_collection.insert_one(entry)
     if req.project_id:
         projects_collection.update_one({"_id": ObjectId(req.project_id), "user_id": user["_id"]}, {
-            "$push": {"images": {"data": result["image"], "name": "campaign-image.jpg", "text": req.content,
-                                  "state": req.state, "label": "Generated image"}},
+            "$push": {"images": {"$each": [{"data": result["image"], "name": "campaign-image.jpg", "text": content,
+                                  "state": req.state, "label": "Generated image"},
+                                  {"data": result["poster"], "name": "campaign-poster.jpg", "text": content,
+                                   "state": req.state, "label": "Poster"}]}},
             "$set": {"updated_at": datetime.now(timezone.utc)}})
-    return {**result, "note": "Image saved to History and, when applicable, your project library. Review before publishing."}
+    correction_note = (' The poster uses a corrected calendar date; regenerate the written draft to refresh older copy.'
+                       if content != req.content else '')
+    return {**result, "note": "Image and poster saved to History and, when applicable, your project library. Review before publishing." + correction_note}
 
 
 @app.put('/projects/{project_id}/logo')

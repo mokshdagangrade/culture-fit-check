@@ -564,8 +564,12 @@ function ctxChips(context) {
   const weather = context?.weather?.data && Object.keys(context.weather.data).length ? context.weather : null;
   const selected = Array.isArray(context?.signal_selection?.selected)
     ? context.signal_selection.selected.filter(signal => typeof signal?.text === 'string' && signal.text.trim()) : [];
-  const count = selected.length + (weather ? 1 : 0);
-  if (!count) return '<div class="ctx"><span>No recent state data available</span></div>';
+  const calendar = Object.entries(context?.calendar_facts || {});
+  const availability = context?.signal_selection?.availability;
+  const reason = !selected.length ? ({'no-fresh-candidates':'No fresh cleaned trend or event candidates are available. Raw extraction alone does not refresh the ranked candidate collection.', 'ranking-unavailable':'Recent candidates exist, but ranking was unavailable. No unranked hooks were used.', 'no-relevant-signals':'Recent candidates were reviewed, but none met the campaign relevance threshold.'}[availability] || '') : '';
+  const calendarHtml = calendar.length ? `<div><strong>Verified calendar dates</strong>${calendar.map(([name,date])=>`<p>${escapeHtml(name)}: ${escapeHtml(date)}</p>`).join('')}</div>` : '';
+  const count = selected.length + (weather ? 1 : 0) + calendar.length;
+  if (!count) return `<div class="ctx"><span>${escapeHtml(reason || 'No recent state data available')}</span></div>`;
 
   const weatherHtml = weather ? `<div><strong>Weather</strong>${[weather.date, weather.source, weather.scope, weather.confidence].filter(Boolean).map(value => ` · ${escapeHtml(String(value))}`).join('')}<pre>${escapeHtml(JSON.stringify(weather.data, null, 2))}</pre></div>` : '';
   const signalsHtml = selected.map(signal => {
@@ -579,7 +583,7 @@ function ctxChips(context) {
     ].filter(Boolean).map(value => escapeHtml(value)).join(' · ');
     return `<div><strong>${escapeHtml(signal.source || 'Signal')}</strong>${details ? `<div>${details}</div>` : ''}<p>${escapeHtml(signal.text)}</p>${signal.context ? `<p>${escapeHtml(signal.context)}</p>` : ''}${signal.why ? `<p>Why selected: ${escapeHtml(signal.why)}</p>` : ''}</div>`;
   }).join('');
-  return `<details class="source-context"><summary>Context supplied to AI · ${count} context item(s)</summary><p>The AI uses relevant signals when they fit your brief; availability does not mean each signal appears in the draft.</p>${weatherHtml}${signalsHtml}</details>`;
+  return `<details class="source-context"><summary>Context supplied to AI · ${count} context item(s)</summary><p>The AI uses relevant signals when they fit your brief; availability does not mean each signal appears in the draft.</p>${reason ? `<p>${escapeHtml(reason)}</p>` : ''}${weatherHtml}${calendarHtml}${signalsHtml}</details>`;
 }
 
 function cardTemplate(state) {
@@ -714,10 +718,14 @@ async function generateCampaignImage(state, index, button) {
   try {
     const data = await authFetch('/generate-image', {method:'POST', body:JSON.stringify({content, state, project_id: projectId, campaign_brief: currentCandidates[state][index].brief || ''})});
     if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(data.image)) throw new Error('Invalid image response');
-    const image = document.createElement('img'); image.src=data.image; image.alt='Generated campaign illustration for ' + state;
+    const posterData = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(data.poster || '') ? data.poster : null;
+    const image = document.createElement('img'); image.src=posterData || data.image; image.alt='Generated campaign illustration for ' + state;
     const download = document.createElement('a'); download.href=data.image; download.download='campaign-image.jpg'; download.className='btn-ghost'; download.textContent='Download image';
     const poster = document.createElement('button'); poster.type='button'; poster.className='btn-ghost'; poster.textContent='Download poster with content';
-    poster.onclick=() => downloadCampaignPoster(image, content, profile.business_name || '');
+    poster.onclick=() => {
+      if (posterData) {const a=document.createElement('a');a.href=posterData;a.download='campaign-poster.jpg';a.click();}
+      else downloadCampaignPoster(image, data.caption || content, profile.business_name || '');
+    };
     const note=document.createElement('p');note.textContent=data.note;
     preview.replaceChildren(image, download, poster, note);
   } catch(err) {preview.textContent=err.message;}

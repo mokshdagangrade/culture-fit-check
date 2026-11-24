@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const profile = await authFetch('/me');
     logoData=profile.logo_data || '';renderLogo();
+    document.getElementById('brand-details').value=JSON.stringify(profile.brand_details || {}, null, 2);
     ['description', 'target_audience', 'products'].forEach(id => document.getElementById(id).value = profile[id] || '');
     document.getElementById('business_name').value = profile.business_name || '';
     document.getElementById('industry').value = profile.industry || '';
@@ -46,6 +47,42 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (err) {
     showError(err.message);
   }
+
+  const presetSelect=document.getElementById('brand-preset');
+  const presetApply=document.getElementById('apply-brand-preset');
+  const presetStatus=document.getElementById('preset-status');
+  let presets=[];
+  async function loadPresets() {
+    try {
+      presets=(await authFetch('/brand-presets')).presets;
+      presetSelect.replaceChildren(new Option('Choose a fictional brand', ''));
+      presets.forEach(p=>presetSelect.add(new Option(p.label,p.preset_id)));
+      presetSelect.disabled=!presets.length;
+      if(!presets.length) presetStatus.textContent='No demo brands imported yet. Run the preset import command in README, then refresh this page.';
+    } catch(err) {presetStatus.textContent=err.message;presetSelect.replaceChildren(new Option('Demo brands unavailable',''));}
+  }
+  presetSelect.onchange=()=> {
+    const preset=presets.find(p=>p.preset_id===presetSelect.value);
+    presetApply.disabled=!preset;
+    document.getElementById('preset-preview').hidden=!preset;
+    if(!preset)return;
+    presetStatus.textContent=preset.summary;
+    document.getElementById('preset-json').textContent=JSON.stringify(preset.profile,null,2);
+    const briefs=document.getElementById('preset-briefs');briefs.replaceChildren();
+    (preset.suggested_test_briefs || []).forEach(text=>{const li=document.createElement('li');li.textContent=text;briefs.appendChild(li);});
+  };
+  presetApply.onclick=()=> {
+    const preset=presets.find(p=>p.preset_id===presetSelect.value);if(!preset)return;
+    const profile=preset.profile;
+    ['business_name','industry','tone','description','target_audience','products'].forEach(id=>document.getElementById(id).value=profile[id] || '');
+    document.getElementById('past_taglines').value=(profile.past_taglines || []).join('\n');
+    document.getElementById('brand-details').value=JSON.stringify(profile.brand_details || {},null,2);
+    document.querySelectorAll('.state-checkbox input').forEach(input=>{input.checked=(profile.states || []).includes(input.value);});
+    logoData='';renderLogo();
+    document.querySelectorAll('.field.invalid').forEach(field=>{field.classList.remove('invalid');const msg=field.querySelector('.field-msg');if(msg)msg.textContent='';});
+    showError('');presetStatus.textContent=preset.label+' filled in. Review the form and save to use it. The previous account logo has been cleared from this form.';
+  };
+  loadPresets();
 
   function showError(text) {
     const box = document.getElementById('profile-error');
@@ -75,7 +112,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     e.preventDefault();
     showError('');
 
+    let details;
+    try {
+      details=JSON.parse(document.getElementById('brand-details').value.trim() || '{}');
+      if(!details || typeof details!=='object' || Array.isArray(details)) throw new Error();
+    } catch(err) {showError('Detailed brand facts must be a valid JSON object.');document.getElementById('brand-details').focus();return;}
     const values = {
+      brand_details: details,
       ...Object.fromEntries(['description', 'target_audience', 'products'].map(id => [id, document.getElementById(id).value.trim()])),
       business_name: document.getElementById('business_name').value.trim(),
       industry: document.getElementById('industry').value.trim(),

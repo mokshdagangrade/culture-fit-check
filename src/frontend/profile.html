@@ -29,6 +29,16 @@
     <h1 id="page-heading">Business settings</h1>
     <p class="sub" id="page-sub">Wavelength uses this to write in your voice for each state.</p>
 
+    <section class="brand-presets" aria-labelledby="preset-heading">
+      <h2 id="preset-heading">Try a demo brand</h2>
+      <p>Fictional brands for testing. Choose one to preview its details, then fill the form and save to use it.</p>
+      <label for="brand-preset">Preset brand</label>
+      <div class="preset-controls"><select id="brand-preset" disabled><option value="">Loading demo brands…</option></select><button class="btn-ghost" type="button" id="apply-brand-preset" disabled>Fill brand details</button></div>
+      <p id="preset-status" role="status"></p>
+      <details id="preset-preview" hidden><summary>Brand details and sample test briefs</summary><pre id="preset-json"></pre><h3>Suggested test briefs</h3><ul id="preset-briefs"></ul></details>
+      <p class="inline-note">Saving changes updates your account's brand for future drafts. Use a fresh project when testing a different brand; existing project logos and image references stay active.</p>
+    </section>
+
     <form id="profile-form" novalidate>
       <div class="field" data-field="business_name">
         <label for="business_name">Business name</label>
@@ -69,6 +79,7 @@
         <textarea id="past_taglines" rows="5" placeholder="Paste a few captions you've used before, one per line. You can also drop a file into the chat later."></textarea>
       </div>
 
+      <div class="field"><label for="brand-details">Detailed brand facts and visual guidelines (JSON, optional)</label><textarea id="brand-details" rows="8" spellcheck="false" placeholder="{}"></textarea><p class="inline-note">Catalog, colors, policies and claim limits. Presets fill this automatically; review and edit as needed.</p></div>
       <div class="form-error" id="profile-error" role="alert"></div>
       <button class="btn" id="save-btn" type="submit">Save changes</button>
     </form>

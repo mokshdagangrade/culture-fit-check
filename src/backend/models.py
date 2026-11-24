@@ -53,6 +53,16 @@ class AuthResponse(BaseModel):
 
 
 class ProfileUpdate(BaseModel):
+    brand_details: Optional[dict] = None
+
+    @field_validator('brand_details')
+    @classmethod
+    def check_brand_details(cls, value):
+        import json
+        if value is not None and len(json.dumps(value).encode()) > 40_000:
+            raise ValueError('Brand details must be under 40 KB')
+        return value
+
     logo_data: Optional[str] = Field(default=None, max_length=1_400_000)
 
     @field_validator("logo_data")
@@ -78,6 +88,7 @@ class ProfileUpdate(BaseModel):
 
 
 class ProfileResponse(BaseModel):
+    brand_details: dict = Field(default_factory=dict)
     logo_data: str = ""
     description: Optional[str] = None
     target_audience: Optional[str] = None
