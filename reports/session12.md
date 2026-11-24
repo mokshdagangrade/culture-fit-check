@@ -39,6 +39,9 @@ north_star:
 - **Strengthened existing functionality:** Fixed missing-field handling and empty states, corrected a candidate-interleaving boundary, and removed a redundant image-history assignment while preserving behavior.
 - **Investigated generation reliability:** Reviewed multi-state failure handling and requirements for preserving successful drafts, retrying failed states, and maintaining consistent history and follow-up context.
 - **Validated integration stability:** Checked backend/image regressions and frontend rendering assertions for compatibility, missing data and context rendering.
+- **Reviewed cultural-adaptation evaluation research:** Read "Translating Across Cultures," which evaluates English-to-Indian-audience adaptation for localization, naturalness, offensiveness, content preservation and stereotyping, and compares an LLM judge with human raters. Findings highlighted incorrect cultural substitutions and trade-offs between localization and naturalness.
+- **Proposed rubric extensions:** Added naturalness, over-localization and stereotyping checks to the proposed evaluation design, while retaining human-labelled factual accuracy rather than relying only on automated judging.
+- **Scoped a three-tier fallback:** Designed state-grounded, Census-region/division-grounded, and explicitly labelled brand-only drafts for cases with weak local signals. The stitched schema already includes Census region and division fields; tier selection and evidence display remain design work.
 
 
 ## User evidence
@@ -48,6 +51,8 @@ north_star:
 - The weather-only context display prompted a MongoDB freshness check: current raw data did not mean the cleaned candidate collection had also been refreshed.
 - Detailed fictional brand presets were requested so testers can try different brands without repeatedly entering account details. Presets can be previewed and applied through Brand settings.
 - The context-panel review improved visibility into selected evidence and exposed missing-data/empty-state issues. These checks support inspection, but do not establish improved ranking quality or independent user-study results.
+- The reviewed paper provides external evaluation evidence rather than a new user study for this application. Its findings motivate checks for unnatural wording, over-localization and stereotyped or incorrect cultural substitutions.
+- The proposed fallback design groups states by Census region or division and flags meaningful outliers, with explicit labels so users can distinguish state-level evidence, broader regional evidence and brand-only copy.
 
 
 
@@ -70,6 +75,7 @@ north_star:
 - MongoDB inspection found **50 raw state snapshots dated November 24, 2026**, while `signal_candidates` contained **1,295 rows dated October 20**. These candidates fall outside the generation freshness window, explaining the weather-only context.
 - Fresh raw extraction is available; regenerating cleaned tables and loading fresh candidates are still required. No new precision@3, recall or visual-quality score is claimed.
 - Work is underway to investigate ranking prompts, relevance thresholds and source balance, and to prepare a comparison of base and fine-tuned generation on unseen brands. Adapter-serving integration remains ongoing rather than completed.
+- **External research, not application metrics:** The reviewed paper reports LLM-judge agreement with human raters of approximately 0.6 Kendall’s tau for naturalness and localization, but 0.39 for content preservation. These findings support human review of factual accuracy; they do not measure this application’s performance.
 
 
 ## What did not work
@@ -90,6 +96,8 @@ north_star:
 - Multi-state recovery must preserve successful drafts, retry only failed states, and keep history and follow-up context consistent. This capability is not yet shipped.
 - Fine-tuned generation still needs a verified adapter-serving path and backend configuration. Final comparisons need unseen brands and measures of brand consistency, factual accuracy, regional relevance and finished-copy quality.
 - Brand settings remain account-wide. When switching demo brands, testers should use a fresh project so existing project logos and visual references do not contaminate the test.
+- The extended rubric needs scoring anchors that reviewers can apply consistently. Automated cultural-adaptation judging is insufficient on its own for factual accuracy and content preservation.
+- Region/division fallback needs explicit tier labels, evidence display and rules for when broader signals are appropriate. Existing geographic fields support the design, but do not establish that a signal applies to every state in a region.
 
 
 ## Next week's goal
@@ -100,12 +108,15 @@ north_star:
 - Address stale-data and safety-filter weaknesses, including usable events being rejected and sensitive political phrasing passing through.
 - Add targeted failure recovery that preserves successful state drafts and retries failed states without rerunning the campaign.
 - Verify adapter-serving options and backend configuration, then refine base-versus-fine-tuned evaluation on unseen brands for brand consistency, factual accuracy, regional relevance and finished-copy quality.
+- Write the extended rubric with scoring anchors for naturalness, over-localization and stereotyping so two reviewers can apply it consistently.
+- Define the labels and context-panel evidence shown at each fallback tier, including when region-level evidence may support a draft.
+- Draft the demo narrative around one grounded draft, one fallback draft and an honest explanation of current limitations.
 
 
 ## Individual contributions
 
 
-- **Stuti Patel (Product):** Current-week contribution update pending.
+- **Stuti Patel (Product):** Researched how cultural adaptation is evaluated and used the findings to propose rubric extensions. Scoped a three-tier fallback for drafts with weak local signals, including how each tier is labelled to users. Current work focuses on a reviewer-ready rubric, fallback evidence displays and the demo narrative.
 - **Riya Puri (Engineering):** Fixed regional-context visibility and backend inconsistencies, validated compatibility, and investigated failure recovery across multi-state generation. Current work focuses on improving retrieval and ranking quality, integrating the fine-tuned generator, and adding recovery capabilities that make the application more reliable for the final deliverables.
 - **Vyom Agarwal (Data&Eval):** Current-week contribution update pending.
 - **Mokshda Gangrade (Users&Research):** Improved product-reference prompts and caption-derived poster text, added year-aware date checks, and diagnosed weather-only grounding through MongoDB freshness inspection. Created three detailed fictional brand presets, a validated catalog importer, and website controls to preview, apply and edit their facts. Added regression checks and documented preset setup and fresh-candidate loading.
