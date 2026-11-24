@@ -119,3 +119,31 @@ Image regression checks:
 cd src/backend
 python3 -m unittest test_image_generation -v
 ```
+
+
+### Refreshing generation signals
+
+`run_extract.py` and `load_mongo.py` update raw `state_signals_daily` documents. Generation reads weather there, but ranks non-weather sources from the separate cleaned `signal_candidates` collection. After extracting a new day, run `data/pipeline/notebooks/json_to_tables.ipynb` and then `data/pipeline/notebooks/data_cleaning.ipynb` (both default to the latest available day), followed by:
+
+```bash
+conda run -n msml641 python data/pipeline/load_candidates.py --date YYYY-MM-DD
+```
+
+Dates outside the candidate freshness window are excluded. The source panel distinguishes missing fresh candidates from ranking failures or a lack of relevant hooks; it does not silently feed unranked raw signals into generation.
+
+New image requests also produce a downloadable poster with the campaign headline, supported offer and date rendered as readable text. Poster text comes from the caption rather than the image model. Black Friday's date is calculated for the current campaign year; explicitly supplied promotion dates remain distinct from the official observance. Product references retain their pose and geometry in the prompt, but generated edits still require visual review.
+
+### Fictional brand presets for testing
+
+Three detailed fictional brands are provided in [data/fixtures/brand_presets.json](data/fixtures/brand_presets.json): Morrow Motion (footwear/activewear), Juniper Cup (coffee), and Luma Grove (skincare). Each includes product facts, sample prices, audiences, tone, colors, policies, claim limits, market guidance, and suggested campaign briefs.
+
+Validate and optionally import them using the backend's Python environment:
+
+```bash
+conda run -n msml641 python src/backend/seed_brand_presets.py --dry-run
+conda run -n msml641 python src/backend/seed_brand_presets.py
+```
+
+The importer uses the backend `.env` and upserts the MongoDB `brand_presets` catalog without modifying user accounts/projects. Restart Uvicorn for the new API/UI code, then refresh **Brand settings → Try a demo brand**. Preview a preset, fill the form, and save to apply it. Later imports appear on refresh without additional frontend edits. Detailed JSON facts are editable and used by text/image generation. Sample test offers are not active by default.
+
+See [data/fixtures/README.md](data/fixtures/README.md) for schema/import behavior and testing workflow. Account brand settings apply across projects; use a fresh project when switching brands so old project logos/references do not affect the test.

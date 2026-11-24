@@ -31,3 +31,5 @@ users_collection.create_index("email", unique=True)
 
 projects_collection = db["projects"]
 projects_collection.create_index([("user_id", 1), ("updated_at", -1)])
+
+brand_presets_collection = db["brand_presets"]
